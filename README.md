@@ -28,11 +28,13 @@ or "build this out".
 
 | Section | What it gives you |
 |---|---|
+| When to orchestrate | The cost multiple, and the cases where delegating makes the result worse |
 | Division of labour | What the orchestrator does vs what agents do, and the narrow exceptions |
 | Model selection | Choosing by *judgement required*, not task size |
 | Briefing | The six things every brief must contain — a brief is a contract |
-| Parallelism | Worktree isolation, file ownership, and why agents collide without it |
-| Verification | Treating every report as a claim, in priority order |
+| Parallelism | Fan-out width, worktree isolation, and why agents collide without it |
+| Verification | Checking against the environment rather than the report |
+| Failure | Restart vs repair, and what a failed run is good for |
 | Sequencing | Authority before implementation; hard-to-reverse before cheap-to-change |
 | Tests | The single failure mode that accounts for most defects surviving a green suite |
 | Anti-patterns | Symptom → what is actually wrong |
@@ -57,10 +59,14 @@ behaviour" quietly becomes the spec.
 
 ## Status
 
-Early. The guidance is drawn from practice rather than benchmarks, and is being
-revised against published research on multi-agent orchestration — notably around
-fan-out width, cost gating, failure handling, and verifying against the environment
-rather than against agent reports.
+Early, and opinionated on purpose. The guidance began as practice notes and has since
+been checked against published research on multi-agent orchestration — which supplied
+the fan-out width, the cost gate, the read/write distinction, and the finding that
+most agent failures arrive with an explicit claim of success attached.
+
+Two things that research says and this skill takes seriously: orchestration is a poor
+fit for sequential work, and the binding constraint on a fleet is not model capacity
+but how fast one human can review what comes back.
 
 Issues and PRs welcome, particularly reports of where this guidance failed you.
 
