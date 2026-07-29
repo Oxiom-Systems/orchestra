@@ -114,7 +114,10 @@ You are the only one who verifies. Agents produce diffs faster than you can chec
 and an unchecked diff is not progress — it is unreviewed code with a confident summary
 attached.
 
-**Give every implementing agent its own git worktree** (`isolation: "worktree"`).
+**Every agent that writes gets its own git worktree** (`isolation: "worktree"`). No
+exceptions, no "this one is only a small change". Read-only agents may share a
+checkout — they cannot collide — but the moment an agent might edit a file, it is
+isolated.
 
 Agents sharing a checkout will collide: one agent's `git checkout` moves HEAD under
 another, and commits land on the wrong branch. This is not hypothetical — it happens
@@ -125,6 +128,30 @@ must integrate, do it in your own worktree, or wait.
 
 Dispatch agents whose file ownership does not overlap. When two pieces of work must
 touch the same file, sequence them and tell the second agent what the first changed.
+
+### Remove the worktree when you merge
+
+A worktree outlives the agent that used it, and nothing removes it for you. A
+non-interactive run never prompts on exit, and automatic sweeps skip any worktree
+holding uncommitted work — precisely the ones that accumulate.
+
+Left alone these reach the hundreds. Each is a full checkout, so a busy repo quietly
+carries gigabytes of finished work.
+
+**Integration is not complete until the worktree is gone.** Make removal the last step
+of the merge, in the same breath as it — not a tidy-up pass you schedule for later. A
+deferred cleanup is one you will not do, and by then you no longer remember which of
+forty worktrees held something you had not committed.
+
+```
+git worktree remove <path>     # refuses if there is uncommitted work
+git worktree prune             # clear metadata for directories already gone
+git worktree list              # confirm
+```
+
+Never `rm -rf` a worktree directory. That leaves git's metadata behind and the worktree
+keeps appearing in `list` as a phantom. If `remove` refuses, treat that as the signal to
+look at what is uncommitted — not as something to force past.
 
 ### Digest pins, lockfiles, and generated artifacts
 
@@ -266,6 +293,7 @@ You are the only one who talks to them. Agent reports are not shown.
 | Large agent output pasted into your context | Ask for paths; read the artifact yourself |
 | Judging work by how the report reads | Verify against the environment, not the prose |
 | Agents colliding on branches | You shared a checkout, or did not isolate |
+| Worktrees accumulating after merges | Removal is part of integration, not a later pass |
 | Refinements being ignored mid-flight | Re-dispatch instead of steering |
 | Every finding spawns an investigation | You lost proportionality |
 | Green tests, broken system | Tests built their own inputs |
