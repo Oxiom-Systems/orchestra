@@ -32,7 +32,7 @@ or "build this out".
 | Division of labour | What the orchestrator does vs what agents do, and the narrow exceptions |
 | Model selection | Choosing by *judgement required*, not task size |
 | Briefing | The six things every brief must contain — a brief is a contract |
-| Parallelism | Fan-out width, worktree isolation, and why agents collide without it |
+| Parallelism | Fan-out width, worktree isolation, and deriving file ownership |
 | Verification | Checking against the environment rather than the report |
 | Failure | Restart vs repair, and what a failed run is good for |
 | Sequencing | Authority before implementation; hard-to-reverse before cheap-to-change |

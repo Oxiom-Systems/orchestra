@@ -129,6 +129,22 @@ must integrate, do it in your own worktree, or wait.
 Dispatch agents whose file ownership does not overlap. When two pieces of work must
 touch the same file, sequence them and tell the second agent what the first changed.
 
+### Deriving the split
+
+Deciding who owns what is the part of decomposition most often done by feel. If the
+repo already has a knowledge graph (`graphify-out/graph.json`), use it: query for the
+files each piece of work touches, and let the community structure propose the
+boundaries. Files that cluster together tend to change together.
+
+Two work units landing in the same community is a signal, not a detail — it means the
+work is coupled, and fanning it out to parallel writers will produce the halves-that-
+do-not-fit failure. Sequence those instead.
+
+Use a graph that already exists. Do not stop to build one mid-orchestration, and do not
+trust a stale one: confidently wrong boundaries are worse than none, because they look
+like analysis. When there is no current graph, reason about ownership directly — the
+requirement is that you can state the split, not that a tool produced it.
+
 ### Remove the worktree when you merge
 
 A worktree outlives the agent that used it, and nothing removes it for you. A
@@ -294,6 +310,7 @@ You are the only one who talks to them. Agent reports are not shown.
 | Judging work by how the report reads | Verify against the environment, not the prose |
 | Agents colliding on branches | You shared a checkout, or did not isolate |
 | Worktrees accumulating after merges | Removal is part of integration, not a later pass |
+| Two agents kept needing the same file | They were one coupled unit; you split a seam that wasn't there |
 | Refinements being ignored mid-flight | Re-dispatch instead of steering |
 | Every finding spawns an investigation | You lost proportionality |
 | Green tests, broken system | Tests built their own inputs |
