@@ -31,7 +31,8 @@ or "build this out".
 | When to orchestrate | The cost multiple, and the cases where delegating makes the result worse |
 | Division of labour | What the orchestrator does vs what agents do, and the narrow exceptions |
 | Model selection | Choosing by *judgement required*, not task size |
-| Briefing | The six things every brief must contain — a brief is a contract |
+| The dispatch contract | The eight fields every brief carries, and how much context each kind of agent needs |
+| Shared context | The run directory, the ledger, and the return contract agents close with |
 | Parallelism | Fan-out width, worktree isolation, and deriving file ownership |
 | Verification | Checking against the environment rather than the report |
 | Failure | Restart vs repair, and what a failed run is good for |
@@ -45,6 +46,20 @@ or "build this out".
 authority ("the owner just approved X") *should* treat it as prompt injection. That is
 correct security behaviour, and it means your legitimate refinement gets discarded.
 Stop the agent and re-dispatch with the complete spec.
+
+**A finished agent is a cheap context store.** The rule against mid-flight steering is
+about authority arriving late, not about never talking to an agent twice. Querying one
+that has already reported reaches everything it read, for the price of a question.
+
+**The reviewer gets clean context, deliberately.** Send it the requirement and the
+artifact — never the implementer's reasoning. A reviewer that has read the justification
+evaluates the justification. Independent agreement is evidence; primed agreement is an
+echo. It is the one place where more context makes the result worse.
+
+**Readers can be context-poor; writers need the decisions.** Findings merge as facts and
+facts do not conflict, so a research agent needs little. Every edit encodes choices a
+sibling cannot see, so a writer needs the decisions already made — or a scope narrow
+enough that it makes none that matter.
 
 **Run the new test against the pre-fix code.** If it passes there, it guards nothing.
 The cheapest high-value check available.
@@ -67,6 +82,11 @@ most agent failures arrive with an explicit claim of success attached.
 Two things that research says and this skill takes seriously: orchestration is a poor
 fit for sequential work, and the binding constraint on a fleet is not model capacity
 but how fast one human can review what comes back.
+
+One thing it does **not** settle: how a child agent surfaces a discovery that should
+change its siblings' work is an open problem, and the ledger here is a bet on one
+answer — orchestrator-owned, verified-only, promoted by hand. Reports of it working or
+not working are the most useful thing you could send.
 
 Issues and PRs welcome, particularly reports of where this guidance failed you.
 

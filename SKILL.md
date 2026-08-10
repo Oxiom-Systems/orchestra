@@ -1,6 +1,6 @@
 ---
 name: orchestra
-description: "Orchestrate multi-agent implementation work as senior architect. Use when a task is large enough to need delegation — features, refactors, migrations, audits, or any multi-step build. You plan, brief, verify and integrate; subagents implement. Sonnet for judgement-heavy work, Haiku for mechanical work, Fable for architecture and second opinions. Triggers: 'orchestrate this', 'use subagents', 'delegate this', 'build this out', or any task where you would otherwise write a lot of implementation code yourself."
+description: "Orchestrate multi-agent implementation work as senior architect. Use when a task is large enough to need delegation — features, refactors, migrations, audits, or any multi-step build. You plan, brief, verify and integrate; subagents implement. Sonnet is the workhorse, Haiku for strictly mechanical work, Fable as adversarial reviewer and architecture input. Triggers: 'orchestrate this', 'use subagents', 'delegate this', 'build this out', or any task where you would otherwise write a lot of implementation code yourself."
 argument-hint: "[optional: the work to orchestrate]"
 ---
 
@@ -46,9 +46,9 @@ When you fan out writers, narrow their scope until the parts genuinely cannot in
 | Role | Who | What |
 |---|---|---|
 | Plan, brief, verify, integrate, decide | **You** | Architecture, sequencing, V&V, merges, deploys, talking to the user |
-| Implement | **Sonnet** | Anything needing judgement: features, refactors, tricky fixes, test design |
-| Implement | **Haiku** | Mechanical, well-specified work: renames, format migrations, repetitive edits |
-| Second opinion, architecture | **Fable** | Design review, adversarial critique, "is this the right shape" |
+| Implement — the workhorse | **Sonnet** | Nearly all of it. Anything requiring a decision: features, refactors, tricky fixes, test design |
+| Mechanical only | **Haiku** | Where the spec fully determines the output: renames, format migrations, repetitive edits |
+| Adversarial review, architecture | **Fable** | Dispatched *against* work, not for it. Design critique, "is this the right shape", second opinion on a decision you are attached to |
 
 **Never implement yourself.** Exceptions, and they are narrow: resolving a merge
 conflict between two agents' branches, a one-line integration fix, or verification
@@ -61,36 +61,95 @@ pass" is a claim, not a fact. Check the things that would embarrass you if wrong
 
 Pick by *judgement required*, not by size.
 
+- **Sonnet** — the workhorse, and the default. The agent must make decisions: how to
+  structure a fix, what to test, how to handle an edge case, whether a claim holds.
+  This is most implementation work, and most of your fleet should be this.
 - **Haiku** — the spec fully determines the output. Mechanical renames, moving files,
   applying a known pattern across many sites, updating references.
-- **Sonnet** — the agent must make decisions: how to structure a fix, what to test,
-  how to handle an edge case, whether a claim holds. This is most implementation work.
 - **Fable** — you want to be argued with. Architecture, contracts, "what am I missing",
-  reviewing a design you are attached to. Give it *detailed* context; a vague brief
-  wastes it. Explicitly invite it to contradict you.
+  reviewing a design you are attached to. Explicitly invite it to contradict you, and
+  give it standing to conclude the whole approach is wrong. See *The reviewer gets
+  clean context* for what to send it — which is less than you would think.
 
 When unsure between Haiku and Sonnet, use Sonnet. A wrong mechanical edit is cheap;
-a wrong judgement call is not.
+a wrong judgement call is not. The moment judgement enters a "mechanical" task the
+saving is already gone — published attempts to run weaker models under stronger ones
+as a cost optimisation failed on exactly this, and only paired frontier models held up.
 
-## Briefing an agent
+## The dispatch contract
 
-A brief is a contract. Weak briefs produce work you have to redo.
+A subagent inherits nothing from your thread. It has never seen the user's message,
+your plan, or its siblings. Everything it will ever know about this task is in the
+string you send.
 
-Every brief must contain:
+Vague briefs do not produce vague work. They produce confident work on the wrong
+problem — and a sibling doing the same thing. The most-reported failure in published
+multi-agent systems is not isolation between agents, it is under-specification of
+each one: given a goal like "research the semiconductor shortage", agents duplicate
+each other and leave gaps, and neither failure is visible in the reports.
 
-1. **The goal, in the user's own words where possible.** Quote them. Agents calibrate
-   on intent, and paraphrase loses it.
-2. **Success criteria, defined before dispatch.** State what SUCCESS looks like and
-   what FAILURE looks like. If you cannot state these, you do not yet know what you
-   want built.
-3. **Established facts** the agent should build on rather than re-derive — with the
-   evidence. Mark them clearly so the agent does not waste a cycle re-litigating
-   settled questions.
-4. **Hard constraints** — invariants that must not be weakened, files that are off
-   limits (because another agent owns them), and anything that must fail closed.
-5. **How to verify**, and a demand for *actual output* rather than an assurance —
-   written to a file you can read, not pasted into the report.
-6. **Scope boundaries.** What NOT to do. Agents expand scope helpfully and destructively.
+Every dispatch carries these:
+
+**GOAL** — one sentence, in the user's own words where you have them. Quote them;
+agents calibrate on intent and paraphrase loses it. What is true when this is done
+that is not true now.
+
+**WHY** — one line. What this unblocks. An agent that knows the purpose chooses well
+when the brief runs out. One that does not, guesses.
+
+**SUCCESS** — the observable that settles it. A command and its expected exit code, a
+file that exists, a test that fails before and passes after. If your success criterion
+cannot be checked by running something, it is a hope, not a criterion.
+
+**FAILURE** — what a wrong answer looks like, with the plausible wrong turn named out
+loud: "if you find yourself editing the parser, you have misread this."
+
+**GIVEN** — established facts, with their evidence, marked settled. What has already
+been ruled out and why. This is what stops the agent spending an hour re-deriving
+what already cost you one.
+
+**OWN** — the files this agent may write. Everything else is read-only, because a
+sibling owns it. Include invariants that must not be weakened and anything that must
+fail closed.
+
+**DO NOT** — scope boundaries. Agents expand scope helpfully and destructively.
+
+**RETURN** — the exact shape of the report, and a demand for *actual output* rather
+than an assurance: written to a file you can read, not pasted into the report. See
+*The return contract*.
+
+If you cannot write SUCCESS and FAILURE, do not dispatch. You do not yet know what you
+want built, and the agent will not discover it for you.
+
+### How much context to pass
+
+The published guidance splits on this, and it splits along the read/write seam you
+already have.
+
+**Readers can be context-poor.** Give a research or search agent the question, the
+output shape, and where to look. It does not need your plan, and it does not need to
+know its siblings exist. Its findings merge as facts, and facts do not conflict.
+
+**Writers need the decisions.** Every edit encodes choices a sibling cannot see —
+naming, error handling, which layer owns a concern. Two agents given the same goal and
+no shared trace will make incompatible choices, and both will be defensible. Give a
+writer the decisions already made, not merely the task, or narrow its scope until it
+makes none that matter.
+
+When a writer needs so much of the trace that you are reconstructing your whole session
+in the brief, that is the signal the work was never parallel. Sequence it, or do it
+yourself.
+
+### The reviewer gets clean context, deliberately
+
+Give a review agent the requirement and the artifact in full. Do **not** give it the
+implementer's reasoning, transcript, or self-assessment.
+
+A reviewer that has read the justification evaluates the justification. A reviewer that
+has only the requirement and the diff must re-derive the question, which is the entire
+thing you are buying. Independent agreement is evidence; primed agreement is an echo.
+
+This is the one place in this skill where more context makes the result worse.
 
 ### Put the whole spec in the initial dispatch
 
@@ -176,7 +235,54 @@ agents both edit a pinned file, both will pin different values and the merge bre
 
 Own these yourself at integration time, or assign them to exactly one agent.
 
-## Results come back as references, not payloads
+## Shared context
+
+The brief is the whole channel, which means anything learned *after* dispatch is
+invisible to every agent already running and gets re-derived by every agent dispatched
+later. Agent A finds the real cause on minute three; agent B, dispatched at minute five,
+spends an hour finding it again.
+
+Give the run a directory, and name it in every brief:
+
+```
+.orchestra/<run>/
+  ledger.md            # established facts — you write, agents read
+  findings/<agent>.md  # one per agent — agents write, you read
+  artifacts/           # diffs, logs, test output
+```
+
+Sharing through the filesystem rather than through messages is what keeps this
+compatible with *Put the whole spec in the initial dispatch*: an agent reads the ledger
+at the start of its own turn, from a path its own brief named. Nothing arrives
+mid-flight, so nothing has to be treated as injection.
+
+### The ledger is yours to write
+
+**Agents never append to the ledger.** An agent-written ledger turns unverified claims
+into the next agent's premises, and a claim that enters as a premise is never checked
+again — which is the failure this whole skill exists to prevent, laundered through a
+file. Promote a finding only after you have verified it, and record the evidence
+beside it:
+
+```
+- the client returns [] for a missing record, not 404 — callers must not branch on status
+  verified: scripts/probe_missing.sh, exit 0, output artifacts/probe-missing.txt
+  established by: agent-3 | depends on: src/api/client.py
+```
+
+`depends on` is not decoration. When a later agent changes a file a fact rests on, that
+fact is stale — strike it in the same breath as the merge. A confidently wrong ledger is
+worse than no ledger, because every subsequent brief inherits it as GIVEN.
+
+Keep entries to one line and a path. If it does not fit, it is an artifact. A ledger
+that grows past skimming costs more than the re-derivation it prevents.
+
+This part is a bet, not settled practice. How a child agent surfaces a discovery that
+should change its siblings' work is named as an open problem in the published write-ups.
+If the ledger is costing you more than it saves on a given run, drop it and brief from
+memory — the rest of this section stands on its own.
+
+### Results come back as references, not payloads
 
 Have agents write their work to disk and report **paths plus a short summary**. Do not
 have them paste large output into their report.
@@ -187,6 +293,35 @@ work and your own findings about it — not a second, lossier copy of the diff.
 
 Where the detail matters — the failing test output, the exact diff stat — read it from
 disk yourself rather than trusting the retelling.
+
+### The return contract
+
+Require every agent to close by writing `findings/<agent>.md`:
+
+```
+CHANGED    paths touched, one line each
+VERIFIED   command run, exit code, artifact path
+CLAIMED    believed true, not verified — and why not
+BLOCKED    what stopped you, what you need
+PROMOTE    facts you think belong in the ledger
+```
+
+The split between VERIFIED and CLAIMED is the point. An agent made to sort its own output
+into those two piles reports its uncertainty instead of smoothing it, and you get a queue
+of exactly the things worth checking. A fixed shape also bounds the agent's runtime and
+makes your integration step mechanical rather than interpretive.
+
+PROMOTE is a request, not an action. You decide what enters the ledger.
+
+### Steering versus querying
+
+Do not steer a running agent — see *Put the whole spec in the initial dispatch*.
+
+But a **finished** agent is a cheap context store. Sending a follow-up question to one
+that has already reported reaches its full working context — the files it read, the
+paths it tried, the things it ruled out — for the price of a question, and far below the
+price of a fresh agent re-reading the same tree. The rule is about authority arriving
+mid-flight, not about never talking to an agent twice.
 
 ## Verifying what comes back
 
@@ -307,6 +442,11 @@ You are the only one who talks to them. Agent reports are not shown.
 | Agents finish faster than you review | Fan-out exceeded your review throughput |
 | Correcting the same agent repeatedly | Re-dispatch with a better brief instead |
 | Large agent output pasted into your context | Ask for paths; read the artifact yourself |
+| Agents re-deriving a fact one of them already found | It never left the agent that found it — promote it to the ledger |
+| A brief cites a fact nobody verified | Something wrote to the ledger that was not you |
+| Two writers made defensible but incompatible choices | You gave them the task without the decisions already made |
+| A reviewer agreed with everything | You sent it the implementer's reasoning; it reviewed the argument |
+| You cannot write SUCCESS for a brief | You are not ready to dispatch it |
 | Judging work by how the report reads | Verify against the environment, not the prose |
 | Agents colliding on branches | You shared a checkout, or did not isolate |
 | Worktrees accumulating after merges | Removal is part of integration, not a later pass |
