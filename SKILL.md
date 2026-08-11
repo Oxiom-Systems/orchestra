@@ -1,6 +1,6 @@
 ---
 name: orchestra
-description: "Orchestrate multi-agent implementation work as senior architect. Use when a task is large enough to need delegation — features, refactors, migrations, audits, or any multi-step build. You plan, brief, verify and integrate; subagents implement. Sonnet is the workhorse, Haiku for strictly mechanical work, Fable as adversarial reviewer and architecture input. Triggers: 'orchestrate this', 'use subagents', 'delegate this', 'build this out', or any task where you would otherwise write a lot of implementation code yourself."
+description: "Orchestrate multi-agent implementation work as senior architect. Use when a task is large enough to need delegation — features, refactors, migrations, audits, or any multi-step build. You run on Opus 5 and plan, brief, verify and integrate; subagents implement. Sonnet is the workhorse, Haiku for strictly mechanical work, Fable as adversarial reviewer and architecture input, Codex (GPT-5.6 Terra) as an outside engine for second implementations and cross-engine review. Triggers: 'orchestrate this', 'use subagents', 'delegate this', 'build this out', or any task where you would otherwise write a lot of implementation code yourself."
 argument-hint: "[optional: the work to orchestrate]"
 ---
 
@@ -45,10 +45,11 @@ When you fan out writers, narrow their scope until the parts genuinely cannot in
 
 | Role | Who | What |
 |---|---|---|
-| Plan, brief, verify, integrate, decide | **You** | Architecture, sequencing, V&V, merges, deploys, talking to the user |
+| Plan, brief, verify, integrate, decide | **You — Opus 5** | Architecture, sequencing, V&V, merges, deploys, talking to the user. The main chat runs Opus 5 and stays there |
 | Implement — the workhorse | **Sonnet** | Nearly all of it. Anything requiring a decision: features, refactors, tricky fixes, test design |
 | Mechanical only | **Haiku** | Where the spec fully determines the output: renames, format migrations, repetitive edits |
 | Adversarial review, architecture | **Fable** | Dispatched *against* work, not for it. Design critique, "is this the right shape", second opinion on a decision you are attached to |
+| Outside implementation and review | **Codex — GPT-5.6 Terra** | A different engine with its own read of the repo. Second implementation of a hard change; review of work your own fleet produced and agreed on. Dispatched through the Codex plugin, not the `Agent` tool |
 
 **Never implement yourself.** Exceptions, and they are narrow: resolving a merge
 conflict between two agents' branches, a one-line integration fix, or verification
@@ -61,6 +62,11 @@ pass" is a claim, not a fact. Check the things that would embarrass you if wrong
 
 Pick by *judgement required*, not by size.
 
+- **Opus 5 — you.** The orchestrator thread itself, and the one seat that is never
+  downgraded. Every judgement that decides what the fleet does is made here: the split,
+  the briefs, what counts as verified, what gets merged. Running the main chat on
+  anything cheaper delegates the architecture role to the model least equipped to hold
+  it, and the saving is invisible right up until an unverified claim ships.
 - **Sonnet** — the workhorse, and the default. The agent must make decisions: how to
   structure a fix, what to test, how to handle an edge case, whether a claim holds.
   This is most implementation work, and most of your fleet should be this.
@@ -75,6 +81,44 @@ When unsure between Haiku and Sonnet, use Sonnet. A wrong mechanical edit is che
 a wrong judgement call is not. The moment judgement enters a "mechanical" task the
 saving is already gone — published attempts to run weaker models under stronger ones
 as a cost optimisation failed on exactly this, and only paired frontier models held up.
+
+### Codex as an outside engine
+
+Sonnet, Haiku and Fable share a lineage, and models that share a lineage tend to share
+blind spots. **Codex** is a different engine with its own training and its own read of
+the repository, which makes it worth reaching for exactly when agreement inside your own
+fleet stops being informative: a second implementation of a change you expect to be hard,
+or a review of work your agents produced and all approved.
+
+It is not dispatched through the `Agent` tool. It runs as its own process with its own
+session through the Codex plugin, and returns a reference like any other agent.
+
+| Model | Slug | What it is | Default effort |
+|---|---|---|---|
+| **Terra** | `gpt-5.6-terra` | Balanced agentic coding model for everyday work | `medium` |
+| **Sol** | `gpt-5.6-sol` | Latest frontier agentic coding model | `low` |
+| **Luna** | `gpt-5.6-luna` | Fast and affordable agentic coding model | `medium` |
+
+All three carry a 272k context window. Effort runs `low → medium → high → xhigh → max →
+ultra`, and Luna stops at `max`. Note what `ultra` actually means: maximum reasoning
+*with automatic task delegation* — Codex fanning out underneath you. That is a second
+orchestrator nested inside your own, running a split you did not choose and cannot
+verify, which is rarely what you want from an agent whose output you are about to check.
+
+**The current default is Terra at `high`**, set in `~/.codex/config.toml`. Terra is the
+everyday choice; keep it unless you have a reason. Reach for Sol when the change is
+genuinely at the frontier of hard, and Luna when volume matters more than depth. Prefer
+raising Terra's effort over switching model — the axis that helps is usually reasoning
+depth, not a different engine.
+
+Dispatch with `/codex:rescue` for implementation and `/codex:review` for review, adding
+`--model gpt-5.6-sol` to override a single run. One sharp edge: the plugin's `--effort`
+flag accepts only `none|minimal|low|medium|high|xhigh`, so `max` and `ultra` can only
+come from the config file — passing them as a flag is rejected.
+
+The rule that governs every other agent governs this one. A different engine disagreeing
+with your fleet is a signal worth reading; a different engine *agreeing* with it is not
+verification. Codex output is a claim until you check it.
 
 ## The dispatch contract
 
@@ -438,6 +482,8 @@ You are the only one who talks to them. Agent reports are not shown.
 |---|---|
 | You are writing implementation code | You stopped orchestrating |
 | Relaying agent claims verbatim | You stopped verifying |
+| The main chat is running a cheaper model | You delegated the architecture role to the model least able to hold it |
+| Codex agreed with your fleet, so you stopped checking | Cross-engine agreement is a weaker signal than it feels; it is not verification |
 | You orchestrated a sequential task | Splitting it fragmented the reasoning |
 | Agents finish faster than you review | Fan-out exceeded your review throughput |
 | Correcting the same agent repeatedly | Re-dispatch with a better brief instead |
