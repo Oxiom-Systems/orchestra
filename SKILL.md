@@ -58,6 +58,14 @@ scripts you throw away. If you are writing a function, you have drifted.
 **Verification is yours and cannot be delegated.** An agent reporting "all tests
 pass" is a claim, not a fact. Check the things that would embarrass you if wrong.
 
+**Everyone working on this is a subagent you dispatched.** Do not recruit teammates and
+do not start separate chats or sessions to carry part of the work. `SendMessage`
+addresses agents you spawned; it is not licence to enlist sessions you did not. The
+reason is accountability rather than tidiness — an agent outside your fleet never enters
+your ledger, never returns through your verification, and its work reaches you as a claim
+you have no standing to check. A run you cannot account for end to end was not
+orchestrated, it was handed off and forgotten.
+
 ## Choosing the model
 
 Pick by *judgement required*, not by size.
@@ -82,6 +90,36 @@ a wrong judgement call is not. The moment judgement enters a "mechanical" task t
 saving is already gone — published attempts to run weaker models under stronger ones
 as a cost optimisation failed on exactly this, and only paired frontier models held up.
 
+**Set `model` explicitly on every dispatch. Omitting it is not "no choice" — it is a
+choice, made by the tool, and it is the most expensive one.** The `Agent` tool takes
+`model` and the agent definition's own frontmatter can supply a default, so a dispatch
+there usually lands where you intended. `Workflow`'s `agent()` does not: with no
+`model` in `opts` it **inherits the main-loop model**, which is the orchestrator's seat —
+Opus. A script that never mentions `model` therefore runs its entire fleet on Opus,
+silently, including the session miners and inventory sweeps this skill has just told you
+to give to Sonnet.
+
+Worse than unwarned: the `Workflow` tool's own description *recommends* omitting it —
+"default to omitting it … which is almost always correct." That advice is written for a
+main loop that is already the right tier for the work. **Under this skill it is wrong**,
+because the premise here is that the main loop is Opus precisely so the implementers
+need not be. When the tool's default and this skill disagree, this skill wins; you are
+running a fleet, not a session.
+
+The run still works, the results are still good, and the bill arrives later.
+
+*Observed 2026-08-17:* an orchestrator that set `model: 'sonnet'` correctly on every
+`Agent` dispatch omitted it on every `Workflow` one, and put roughly eighty subagents —
+transcript mining, register re-verification, mechanical id extraction — on Opus without
+ever deciding to. The skill's advice and the tool's default disagreed, and the default
+won because it was invisible.
+
+So: write `{ model: 'sonnet' }` (or `'haiku'`, or `'opus'`) on every `agent()` call in a
+workflow script, even where it matches what you would have inherited. The redundancy is
+the point — it turns an invisible default into a visible decision a reviewer can
+disagree with. The one seat that legitimately inherits Opus is the orchestrator thread
+itself, and that is not dispatched.
+
 ### Codex as an outside engine
 
 Sonnet, Haiku and Fable share a lineage, and models that share a lineage tend to share
@@ -105,16 +143,94 @@ ultra`, and Luna stops at `max`. Note what `ultra` actually means: maximum reaso
 orchestrator nested inside your own, running a split you did not choose and cannot
 verify, which is rarely what you want from an agent whose output you are about to check.
 
-**The current default is Terra at `high`**, set in `~/.codex/config.toml`. Terra is the
-everyday choice; keep it unless you have a reason. Reach for Sol when the change is
+**The default is Terra at `high`.** Do not set that in `~/.codex/config.toml` and trust it —
+the Codex desktop app rewrites that file whenever you pick a model in its UI, and it has
+read `model = "gpt-5.6-sol"` while this skill claimed otherwise. The model is pinned
+instead by a PreToolUse hook, `~/.claude/hooks/codex-force-model.py`, which injects
+`--model gpt-5.6-terra` into any `codex-companion.mjs task|review|adversarial-review` call
+that does not already carry a `--model`. Pass `--model` yourself to override it for one
+run. Effort is *not* pinned — it still comes from config, so pass `--effort` when it
+matters. Verify the config side with `codex --strict-config doctor`, which errors on an
+unrecognized key and prints the active `model` line. Terra is the everyday choice; keep it
+unless you have a reason. Reach for Sol when the change is
 genuinely at the frontier of hard, and Luna when volume matters more than depth. Prefer
 raising Terra's effort over switching model — the axis that helps is usually reasoning
 depth, not a different engine.
 
-Dispatch with `/codex:rescue` for implementation and `/codex:review` for review, adding
-`--model gpt-5.6-sol` to override a single run. One sharp edge: the plugin's `--effort`
-flag accepts only `none|minimal|low|medium|high|xhigh`, so `max` and `ultra` can only
-come from the config file — passing them as a flag is rejected.
+**Drive the companion from Bash, and let the harness own the process. Never pass
+`--background`.** That flag calls `spawnDetachedTaskWorker` — literally `spawn(…,
+{detached: true, stdio: "ignore"})` followed by `child.unref()`. The run is orphaned from
+the session on purpose: no stdout, no exit signal, no entry in the Background tasks panel,
+nothing you can orchestrate. It is why dispatching the `codex-rescue` subagent returns
+**empty** while the job runs on — you spend a Claude subagent's tokens on a shell call and
+find the real output later, if you remember to look.
+
+Run the companion in its **foreground** mode inside a harness-backgrounded Bash call:
+`run_in_background: true`, and no `--background` flag.
+
+```
+Bash(run_in_background: true, command:
+  node "$CODEX/scripts/codex-companion.mjs" task --write \
+       --model gpt-5.6-terra --effort high "<prompt>")
+```
+
+`$CODEX` is the plugin root (`~/.claude/plugins/cache/openai-codex/codex/<version>`).
+That one change buys the whole orchestration surface, because the process is now the
+harness's:
+
+- it appears in the **Background tasks panel** (`/tasks`) with a task id
+- progress streams live into the task's output file — `Read` it at any point mid-run
+- you are **re-invoked by a completion notification** when it exits; no polling loop
+- `KillShell` cancels it
+- the plugin's own registry still works — foreground runs go through `runTrackedJob`, so
+  `status --all`, `result <job-id> [--json]` and `cancel <job-id>` see the job as before
+
+The companion has no internal foreground timeout; it blocks until Codex finishes. Because
+the call is backgrounded, the 10-minute ceiling on a foreground Bash call does not apply.
+Reserve `--background` for a run you deliberately want to outlive the session, and accept
+that you have given up orchestrating it.
+
+Verified 2026-08-13: a run dispatched this way streamed `[codex] Turn started …` into the
+task output file, notified on exit, registered as `task-msr7ralf-99mrpk | completed |
+rescue`, and its rollout recorded `originator: Claude Code`, `model: gpt-5.6-terra`.
+
+When you want Codex to arrive as an **`Agent`-tool subagent** instead — visible in the
+agent panel, addressable by `SendMessage`, its output kept out of your context — dispatch
+the `codex` agent (`~/.claude/agents/codex.md`), which wraps exactly the call above. Use it
+when a Claude should hold and relay the result; use the raw Bash call when you want the
+output yourself at zero subagent cost. In a `Workflow`, that same agent type is what
+`agent(prompt, {agentType: 'codex'})` should name, which is how you fan several Codex runs
+out in parallel.
+
+Two further traps:
+
+- **Job state is scoped to the repository/cwd.** Poll from the same directory you
+  dispatched from, or `status --all` reports "No jobs recorded yet" while the job is
+  perfectly alive somewhere else.
+- **Also check the file the prompt asked for.** A detached job frequently writes its
+  findings correctly even when nothing came back through the wrapper — treat a missing
+  return as "look on disk", not as "it failed".
+
+`--effort` accepts only `none|minimal|low|medium|high|xhigh`; `max` and `ultra` come from
+`~/.codex/config.toml` and are rejected as flags. There is no `--model_reasoning_effort`
+flag — that is the config key. An unrecognized `--flag` is not rejected either: the parser
+turns it into a positional, so it lands silently inside the prompt text.
+
+**`task` has no `--wait` either.** Foreground is already `task`'s default, so there is
+nothing to wait for. `--wait` and `--background` are real booleans on `review`,
+`adversarial-review` and `status` — not on `task`. Checked against the plugin's own parser
+with `handleTask`'s config, `["--wait", "<prompt>"]` returns
+`{options:{}, positionals:["--wait","<prompt>"]}`: the flag is silently prepended to the
+text Codex is asked to work on. When you want a review specifically, prefer the
+purpose-built subcommands — `review --base <ref>` and `adversarial-review` — over
+hand-rolled lens prompts through `task`; there, `--wait` is genuine. `/codex:rescue`
+and `/codex:review` remain fine for a small interactive run you will watch:
+
+```
+/codex:rescue --model gpt-5.6-terra --effort high <task>
+```
+
+and `--model gpt-5.6-sol` overrides a single one.
 
 The rule that governs every other agent governs this one. A different engine disagreeing
 with your fleet is a signal worth reading; a different engine *agreeing* with it is not
@@ -248,6 +364,35 @@ trust a stale one: confidently wrong boundaries are worse than none, because the
 like analysis. When there is no current graph, reason about ownership directly — the
 requirement is that you can state the split, not that a tool produced it.
 
+### Check the split as a set, before you dispatch it
+
+The split gets checked twice: once per unit, and once as a whole. The second pass is the
+one that gets skipped, and it is the only one that can catch a class of failure no
+individual brief can show — because each brief is internally coherent and the conflict
+lives *between* them.
+
+Read every brief together, against three questions:
+
+- **Collisions.** Two units editing the same file or function. Name the site. A shared
+  file is safe only if the briefs serialise it explicitly, by declared line range — an
+  exclusivity claim by one unit is not a serialisation, it is a collision the other unit
+  has not been told about.
+- **Missing producers.** A unit depending on an output no unit emits. Follow every
+  "depends on" to the unit that produces it, and to the specific work item.
+- **Orphans.** A defect named in the shared context that no unit claims. Enumerate every
+  one and confirm exactly one owner. Orphans are the quietest failure here: everybody
+  assumed it belonged to somebody.
+
+Dispatch a dedicated agent for this and give it the whole set at once — the check needs
+every brief in one context, which is exactly what the individual authors did not have.
+
+*Verified 2026-08-15:* a seven-unit split, each brief sound in isolation, carried two
+units claiming the same file, a unit depending on two reads nobody produced against a
+batch ceiling with no headroom, and a carrier field forbidden to two units and assumed by
+a third — which made that unit's headline goal unreachable. None of the three was visible
+from inside any single brief. When corrections land, put them at the top of the brief they
+amend rather than rewriting it silently; the reader needs to see that the plan changed.
+
 ### Remove the worktree when you merge
 
 A worktree outlives the agent that used it, and nothing removes it for you. A
@@ -290,10 +435,16 @@ Give the run a directory, and name it in every brief:
 
 ```
 .orchestra/<run>/
-  ledger.md            # established facts — you write, agents read
-  findings/<agent>.md  # one per agent — agents write, you read
-  artifacts/           # diffs, logs, test output
+  ledger.html            # established facts — you write, agents read
+  findings/<agent>.html  # one per agent — agents write, you read
+  artifacts/             # diffs, logs, test output
 ```
+
+Run artifacts are HTML, per `~/.claude/planning-html/README.md` — a run is readable in a
+browser without a build step. The discipline below does not change: one line and a path
+per entry, terse sections, no prose padding. HTML is the container, not licence to write
+more. Keep the stylesheet inline and minimal; `artifacts/` stays raw (diffs, logs and test
+output are not documents and must not be wrapped in markup).
 
 Sharing through the filesystem rather than through messages is what keeps this
 compatible with *Put the whole spec in the initial dispatch*: an agent reads the ledger
@@ -308,13 +459,18 @@ again — which is the failure this whole skill exists to prevent, laundered thr
 file. Promote a finding only after you have verified it, and record the evidence
 beside it:
 
-```
-- the client returns [] for a missing record, not 404 — callers must not branch on status
-  verified: scripts/probe_missing.sh, exit 0, output artifacts/probe-missing.txt
-  established by: agent-3 | depends on: src/api/client.py
+```html
+<li class="fact" data-by="agent-3" data-depends="src/api/client.py">
+  the client returns [] for a missing record, not 404 — callers must not branch on status
+  <span class="verified">scripts/probe_missing.sh, exit 0, artifacts/probe-missing.txt</span>
+</li>
 ```
 
-`depends on` is not decoration. When a later agent changes a file a fact rests on, that
+`data-depends` carries the staleness link that used to be `depends on:`, so you can find
+every fact resting on a file an agent just changed with one grep:
+`grep 'data-depends="[^"]*src/api/client.py' ledger.html`.
+
+`data-depends` is not decoration. When a later agent changes a file a fact rests on, that
 fact is stale — strike it in the same breath as the merge. A confidently wrong ledger is
 worse than no ledger, because every subsequent brief inherits it as GIVEN.
 
@@ -340,15 +496,19 @@ disk yourself rather than trusting the retelling.
 
 ### The return contract
 
-Require every agent to close by writing `findings/<agent>.md`:
+Require every agent to close by writing `findings/<agent>.html`:
 
+```html
+<section id="CHANGED">   <!-- paths touched, one line each -->
+<section id="VERIFIED">  <!-- command run, exit code, artifact path -->
+<section id="CLAIMED">   <!-- believed true, not verified — and why not -->
+<section id="BLOCKED">   <!-- what stopped you, what you need -->
+<section id="PROMOTE">   <!-- facts you think belong in the ledger -->
 ```
-CHANGED    paths touched, one line each
-VERIFIED   command run, exit code, artifact path
-CLAIMED    believed true, not verified — and why not
-BLOCKED    what stopped you, what you need
-PROMOTE    facts you think belong in the ledger
-```
+
+The five section IDs are fixed and non-optional — an empty section stays, empty. Fixed IDs
+are what make your integration step mechanical: you can pull every agent's CLAIMED pile
+across a run without reading five files end to end.
 
 The split between VERIFIED and CLAIMED is the point. An agent made to sort its own output
 into those two piles reports its uncertainty instead of smoothing it, and you get a queue
@@ -381,6 +541,15 @@ Treat every report as a claim. Check, in rough priority order:
   the cause, not the symptom.
 - **The test actually catches the bug.** The strongest check available: run the new
   test against the *pre-fix* code. If it passes there, it guards nothing.
+- **What a "measured" claim was measured against.** The dangerous report is not the one
+  that reasons and gets it wrong — it is the one that genuinely measures, having built
+  its own inputs where the real system builds different ones. It arrives labelled
+  *measured*, which is precisely why it survives review. Ask which construction path the
+  agent used, and whether production takes that path. *Verified 2026-08-15:* an agent ran
+  the shipped scoping function against a profile it constructed from class defaults,
+  reported that no device was attributed on a live router, and manufactured a blocker
+  that reshaped a plan. The same function, fed the row the system actually loads,
+  returned every device correctly.
 - **Claims about what does not exist.** "No test depends on this" and "this code is
   dead" are the claims most often wrong. Verify before deletion.
 - **Untouched-file claims.** `git diff --stat` against the base.
@@ -483,6 +652,7 @@ You are the only one who talks to them. Agent reports are not shown.
 | You are writing implementation code | You stopped orchestrating |
 | Relaying agent claims verbatim | You stopped verifying |
 | The main chat is running a cheaper model | You delegated the architecture role to the model least able to hold it |
+| Your whole fleet is running Opus | You omitted `model` in a `Workflow` script, so every `agent()` inherited the orchestrator's seat. Set it explicitly on every call |
 | Codex agreed with your fleet, so you stopped checking | Cross-engine agreement is a weaker signal than it feels; it is not verification |
 | You orchestrated a sequential task | Splitting it fragmented the reasoning |
 | Agents finish faster than you review | Fan-out exceeded your review throughput |
