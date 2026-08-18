@@ -1,0 +1,22 @@
+{
+  "name": "orchestra",
+  "owner": {
+    "name": "Oxiom Systems",
+    "url": "https://github.com/Oxiom-Systems"
+  },
+  "metadata": {
+    "description": "Orchestrate multi-agent implementation work as senior architect."
+  },
+  "plugins": [
+    {
+      "name": "orchestra",
+      "source": "./",
+      "description": "Orchestrate multi-agent implementation work as senior architect. You plan, brief, verify and integrate; subagents implement.",
+      "version": "1.0.0",
+      "homepage": "https://github.com/Oxiom-Systems/orchestra",
+      "repository": "https://github.com/Oxiom-Systems/orchestra",
+      "license": "MIT",
+      "keywords": ["orchestration", "multi-agent", "subagents", "delegation", "architecture", "claude-code"]
+    }
+  ]
+}

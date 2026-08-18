@@ -1,0 +1,11 @@
+{
+  "name": "orchestra",
+  "version": "1.0.0",
+  "description": "Orchestrate multi-agent implementation work as senior architect. You plan, brief, verify and integrate; subagents implement.",
+  "author": {
+    "name": "Oxiom Systems",
+    "url": "https://github.com/Oxiom-Systems"
+  },
+  "repository": "https://github.com/Oxiom-Systems/orchestra",
+  "license": "MIT"
+}

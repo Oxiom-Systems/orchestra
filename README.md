@@ -9,7 +9,14 @@ code, stops verifying, and starts relaying agent reports as if they were facts.
 
 ## Install
 
-Clone into your Claude Code skills directory:
+**As a plugin:**
+
+```bash
+claude plugin marketplace add Oxiom-Systems/orchestra
+claude plugin install orchestra@orchestra
+```
+
+**Or clone directly into your skills directory:**
 
 ```bash
 git clone https://github.com/Oxiom-Systems/orchestra.git ~/.claude/skills/orchestra
