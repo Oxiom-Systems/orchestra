@@ -23,15 +23,22 @@ merely "everyday" by comparison — the catalog describes Terra as the balanced 
 Sol as the reliable workhorse. Check a model's own catalog entry before asserting which
 is more capable; it may not be what the name suggests.
 
-## The model is pinned; effort is not
+Terra is the everyday choice; keep it unless you have a reason to switch. Reach for Sol
+as a second, same-lineage read when Terra's answer feels shaky — not because the catalog
+calls it more capable, since it does not — and reach for Luna when volume matters more
+than depth. Prefer raising Terra's effort before switching model: the axis that usually
+helps is reasoning depth, not a different engine.
 
-Terra is pinned by a PreToolUse hook, `~/.claude/hooks/codex-force-model.py`, which
-injects `--model gpt-5.6-terra` into any `codex-companion.mjs task|review|
-adversarial-review` call that does not already carry a `--model`. Pass `--model`
-yourself to override it for one run. Do not trust `~/.codex/config.toml` to hold Terra —
-the Codex desktop app rewrites that file whenever a model is picked in its UI, and it
-has been found reading `model = "gpt-5.6-sol"` while nothing in the session set it
-there.
+## Pinning the model is a pattern, not a given
+
+Nothing ships a model pin for you. The author pins Terra locally with a PreToolUse hook,
+`~/.claude/hooks/codex-force-model.py`, injecting `--model gpt-5.6-terra` into any
+`codex-companion.mjs task|review|adversarial-review` call that does not already carry a
+`--model` — that hook lives outside every plugin; write your own if you want the
+guarantee, or pass `--model` explicitly on every call instead. Whichever you choose, do
+not trust `~/.codex/config.toml` to hold the model you expect — the Codex desktop app
+rewrites that file whenever a model is picked in its UI, and it has been found reading
+`model = "gpt-5.6-sol"` while nothing in the session set it there.
 
 **Effort is not pinned by the hook. It comes from `~/.codex/config.toml`, and `review` /
 `adversarial-review` have no `--effort` flag to override it with.** Check
@@ -58,16 +65,16 @@ Until it ships, the config check above is manual; do it yourself first.
 `executeTaskRun` sets `sandbox: request.write ? "workspace-write" : "read-only"`, with
 `approvalPolicy: "never"`, resolved against whatever directory the Bash call's cwd
 `git rev-parse --show-toplevel`s to. `isolation` is an `Agent`-tool feature; a raw Bash
-call gets none of it, and the `codex` agent definition does not create a worktree on
-its own either. A `task --write` dispatched from the orchestrator's own checkout is
-therefore an unattended, approval-free writer sitting in the same checkout your other
-agents are using — exactly the collision *Parallelism and isolation* says happens
-reliably within an hour.
+call gets none of it, and a hand-written `codex` agent that merely wraps the Bash call
+does not create a worktree on its own either — you have to ask for one. A `task --write`
+dispatched from the orchestrator's own checkout is therefore an unattended,
+approval-free writer sitting in the same checkout your other agents are using — exactly
+the collision *Parallelism and isolation* says happens reliably within an hour.
 
-Dispatch the `codex` agent with `isolation: "worktree"`, or `git worktree add` yourself
-first and pass `--cwd <worktree>` (the companion accepts `--cwd`/`-C`). Job state then
-lives under that worktree only (see below) — the run is visible from there and nowhere
-else.
+If you have defined a `codex` agent (see *Arriving as an `Agent`-tool subagent* below),
+dispatch it with `isolation: "worktree"`; otherwise `git worktree add` yourself first and
+pass `--cwd <worktree>` (the companion accepts `--cwd`/`-C`). Job state then lives under
+that worktree only (see below) — the run is visible from there and nowhere else.
 
 ## Never pass `--background`
 
@@ -137,10 +144,11 @@ is not rejected either: the parser turns it into a positional, so it lands silen
 inside the prompt text Codex receives.
 
 **`task` has no `--wait`.** Foreground is already `task`'s default, so there is nothing
-to wait for. `--wait` and `--background` are real booleans on `review`,
-`adversarial-review` and `status` — not on `task`. Passing `["--wait", "<prompt>"]` to
-`task` returns `{options:{}, positionals:["--wait","<prompt>"]}`: the flag is silently
-prepended to the text Codex is asked to work on.
+to wait for. `--wait` is a real boolean on `review`, `adversarial-review` and `status`
+— not on `task`. `--background` is a real boolean on `review`, `adversarial-review` and
+`task` — not on `status`. Passing `["--wait", "<prompt>"]` to `task` returns
+`{options:{}, positionals:["--wait","<prompt>"]}`: the flag is silently prepended to the
+text Codex is asked to work on.
 
 `/codex:rescue` and `/codex:review` remain fine for a small interactive run you will
 watch:
@@ -153,12 +161,18 @@ watch:
 
 ## Arriving as an `Agent`-tool subagent
 
-Dispatch the `codex` agent (`~/.claude/agents/codex.md`) when a Claude should hold and
-relay the result — visible in the agent panel, its output kept out of your own context.
-It wraps the foreground-Bash pattern above. Use the raw Bash call instead when you want
-the output yourself, at zero subagent cost. In a `Workflow`, that same agent type is
-what `agent(prompt, {agentType: 'codex'})` should name — the route for fanning several
-Codex runs out in parallel.
+The `openai-codex` plugin ships exactly one agent, `codex-rescue` — dispatch it
+(`subagent_type: 'codex:codex-rescue'`, or `/codex:rescue`) when a Claude should hold
+and relay a Codex run: visible in the agent panel, its output kept out of your own
+context.
+
+A `codex` agent that wraps the foreground-Bash pattern above verbatim — so a `Workflow`
+can fan several runs out in parallel with `agent(prompt, {agentType: 'codex'})`, or so
+the type name reads `codex` rather than `codex-rescue` — is not something the plugin
+ships. It is a short agent definition you write yourself, under
+`~/.claude/agents/codex.md` or wherever your own agents live, if you want that shape.
+Use the raw Bash call directly instead when you want the output yourself, at zero
+subagent cost — that path needs no agent definition at all.
 
 ## The rule that still governs it
 

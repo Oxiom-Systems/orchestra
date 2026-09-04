@@ -90,8 +90,8 @@ you fan out writers, narrow their scope until the parts genuinely cannot interac
 | Outside implementation and review | **Codex — GPT-5.6 Terra** | A different engine, dispatched through the Codex plugin rather than the `Agent` tool — see *Choosing the model* |
 
 **Never implement yourself.** Exceptions are narrow: a merge conflict between two
-agents' branches, a one-line integration fix, or verification scripts you throw away.
-If you are writing a function, you have drifted.
+agents' branches, a one-line integration fix, or throwaway verification scripts. If
+you are writing a function, you have drifted.
 
 **Verification is yours and cannot be delegated.** An agent reporting "all tests pass"
 is a claim, not a fact — check the things that would embarrass you if wrong.
@@ -99,9 +99,9 @@ is a claim, not a fact — check the things that would embarrass you if wrong.
 **Everyone working on this is a subagent you dispatched.** Do not recruit teammates or
 start separate sessions to carry part of the work; `SendMessage` addresses agents you
 spawned, not licence to enlist sessions you did not. An agent outside your fleet never
-enters your ledger or returns through your verification — its work reaches you as a
-claim you have no standing to check. A run you cannot account for end to end was
-handed off and forgotten, not orchestrated.
+enters your ledger or your verification — its work reaches you as a claim you have no
+standing to check. A run you cannot account for end to end was handed off, not
+orchestrated.
 
 ## Choosing the model
 
@@ -123,12 +123,12 @@ Pick by *judgement required*, not by size.
   for what to send it — less than you would think — and *the dispatch contract* for the
   shape a review brief itself takes: it collapses, not all eight fields.
 
-  Priced roughly twice Opus 5 per token, it earns its seat on judgement, never volume —
+  Priced roughly twice Opus 5 per token, it earns its seat on judgement, not volume —
   editing files is a seat misspent. It thinks for as long as the problem takes, so
-  dispatch it early alongside other work rather than parking the fleet on it. And it
-  degrades under a prescriptive brief — a step-by-step checklist narrows what it will
-  consider, the opposite of why you dispatched it. Give it the requirement, the artifact
-  and the question, then get out of the way.
+  dispatch it early alongside other work rather than parking the fleet on it, and it
+  degrades under a prescriptive brief — a checklist narrows what it will consider, the
+  opposite of why you dispatched it. Give it the requirement, the artifact and the
+  question, then get out of the way.
 
   The `Agent` tool's value is still the bare string `'fable'`. On first-party that
   resolves to `claude-fable-5-1`; a gateway provider's catalog can list the same string
@@ -138,63 +138,63 @@ Pick by *judgement required*, not by size.
 ### Why the orchestrator isn't the most capable model
 
 The argument above — cheaper main chat delegates architecture to the model least
-equipped to hold it — reads as a case for Fable here, not Opus. It is not: the reason
-is cost shape and latency, not capability. The orchestrator is the highest-volume seat
-by input tokens (a long context re-read whole every turn) and the latency-critical seat
-everything else waits on, while Fable's turns run long by design — parking that turn
-here would serialise the fleet behind it. Fable earns its keep dispatched against the
+equipped to hold it — reads as a case for Fable here, not Opus. It isn't: the reason is
+cost shape and latency, not capability. The orchestrator is the highest-volume seat by
+input tokens (a long context re-read every turn) and the latency-critical seat
+everything else waits on; Fable's turns run long by design, and parking that turn here
+would serialise the fleet behind it. Fable earns its keep dispatched against the
 orchestrator's work, not running it.
 
 When unsure between Haiku and Sonnet, use Sonnet — a wrong mechanical edit is cheap, a
-wrong judgement call is not, and the moment judgement enters a "mechanical" task the
-saving is gone. Published attempts to run weaker models under stronger ones as a cost
-optimisation failed on exactly this; only paired frontier models held up.
+wrong judgement call is not. Published attempts to run weaker models under stronger
+ones as a cost optimisation failed for exactly this reason; only paired frontier models
+held up.
 
-**Set `model` and `effort` explicitly on every dispatch.** Omitting either is not "no
-choice" — it is a choice made by the tool, usually the most expensive one. The `Agent`
+**Set `model` and `effort` explicitly on every dispatch.** Omitting either isn't "no
+choice" — it's a choice made by the tool, usually the most expensive one. The `Agent`
 tool takes `model` from the call or the agent's frontmatter; effort comes from the
 definition or is inherited, so check which. `Workflow`'s `agent()` takes both, and
 omitting either **inherits the main-loop's** — Opus, at this session's effort — silently,
-including the mechanical sweeps this skill just told you to give Sonnet at a lower one.
+including the mechanical sweeps this skill told you to give Sonnet at a lower one.
 
 The `Workflow` tool's own description recommends omitting `model` — "almost always
-correct" for a main loop already at the right tier. **Under this skill it is wrong**:
-the premise is that the main loop is Opus precisely so implementers need not be, and
-when the tool's default and this skill disagree, this skill wins — *observed*, on a
-script that set `model` correctly on every `Agent` dispatch and put roughly eighty
-`Workflow` subagents on Opus by never mentioning it there.
+correct" for a main loop already at the right tier. **Under this skill it's wrong**: the
+main loop is Opus precisely so implementers need not be — *observed*, on a script that
+set `model` on every `Agent` dispatch yet still put roughly eighty `Workflow` subagents
+on Opus by never mentioning it there.
 
 Write `{ model: 'sonnet', effort: 'medium' }` (adjust per task) on every `agent()` call,
 even where it matches what you'd inherit — the redundancy turns an invisible default
-into a visible decision a reviewer can disagree with. Only the orchestrator itself
-legitimately inherits both, and it is not dispatched.
+into a visible decision a reviewer can disagree with. Only the orchestrator legitimately
+inherits both, and it isn't dispatched.
 
 ### Codex as an outside engine
 
 Sonnet, Haiku and Fable share a lineage and tend to share blind spots. **Codex** is a
 different engine with its own training and read of the repo — reach for it when
 agreement inside your fleet stops being informative: a second implementation of a
-change you expect to be hard, or a review of work your fleet already approved. It is
-not dispatched through the `Agent` tool; it runs as its own process through the Codex
-plugin and returns a reference like any other agent.
+change you expect to be hard, or a review of work your fleet already approved. It runs
+through the Codex plugin as its own process, not the `Agent` tool — unless you wrap it
+in an agent definition of your own; the plugin ships only `codex-rescue`.
 
-The full runbook — model table, the `--background` trap, job-state scoping, flag
-quirks — lives in `references/codex.md`; read it before a dispatch that matters. Four
-rules to hold without reading further:
+The full runbook — model table, the `--background` trap, flag quirks — lives in
+`references/codex.md`; read it before a dispatch that matters. Four rules to hold
+without reading further:
 
-- **The hook pins the model, not the effort.** `~/.claude/hooks/codex-force-model.py`
-  injects `--model gpt-5.6-terra` into a bare `task|review|adversarial-review` call.
-  Effort comes from `~/.codex/config.toml`, currently `ultra` — maximum reasoning *with
-  automatic task delegation*. **`review`/`adversarial-review` have no `--effort` flag**
-  and cannot override that; `task` does, so run reviews through it with an explicit
-  value when effort matters.
+- **The pinning hook is local setup — write your own or pass `--model` yourself.**
+  `~/.claude/hooks/codex-force-model.py` injects `--model gpt-5.6-terra` into a bare
+  `task|review|adversarial-review` call; nothing ships it. Effort comes from
+  `~/.codex/config.toml` — watch for `ultra`, maximum reasoning *with automatic task
+  delegation*. **`review`/`adversarial-review` have no `--effort` flag** and cannot
+  override it; `task` does, so run reviews through it with an explicit value instead.
 - **`--write` is a writer in the shared checkout unless isolated.** It runs unattended
-  and approval-free wherever the Bash call's cwd resolves to. Dispatch the `codex`
-  agent with `isolation: "worktree"`, or `git worktree add` yourself and pass `--cwd`.
+  and approval-free wherever the Bash call's cwd resolves to. `git worktree add` it
+  yourself and pass `--cwd`, or dispatch a `codex` agent with `isolation: "worktree"`
+  if you've defined one.
 - **Never pass `--background`.** It orphans the process — no stdout, no notification,
-  nothing to orchestrate, and it doesn't even outlive the session anyway. Drive it in
-  foreground mode inside a harness-backgrounded Bash call instead: `run_in_background:
-  true` on the call, no `--background` on the companion.
+  nothing to orchestrate, and it doesn't even outlive the session anyway. Drive it in a
+  harness-backgrounded Bash call instead: `run_in_background: true` on the call, not
+  `--background` on the companion.
 - **Agreement is not verification, doubly so here.** A different engine disagreeing
   with your fleet is a signal worth reading; agreeing with it is not evidence you
   checked anything.
@@ -226,8 +226,8 @@ running something, it is a hope, not a criterion.
 **FAILURE** — what a wrong answer looks like, with the plausible wrong turn named out
 loud: "if you find yourself editing the parser, you have misread this."
 
-**GIVEN** — established facts, with their evidence, marked settled — what stops the
-agent spending an hour re-deriving what already cost you one.
+**GIVEN** — established facts, with evidence, marked settled, and what has already been
+ruled out — what stops the agent re-deriving what already cost you one.
 
 **OWN** — the files this agent may write; everything else is read-only, because a
 sibling owns it. Include invariants that must not weaken and anything that must fail
@@ -240,10 +240,9 @@ carries the `Agent` tool too, and nothing else stops it nesting a fleet you can'
 **RETURN** — the exact shape of the report, and a demand for *actual output*: written to
 a file you can read, not pasted in. See *The return contract*.
 
-**For review dispatches the contract collapses.** Fable and Codex review both take
-GOAL (the question), the artifact, and RETURN (where to write); SUCCESS, FAILURE,
-GIVEN, OWN and DO NOT drop, and the return is the reviewer's own ranked findings, not
-the five sections below.
+**For review dispatches the contract collapses.** Fable and Codex review both take GOAL,
+WHY, the artifact, and RETURN; SUCCESS, FAILURE, GIVEN, OWN and DO NOT drop, and the
+return is the reviewer's own ranked findings, not the five sections below.
 
 If you cannot write SUCCESS and FAILURE, do not dispatch. You do not yet know what you
 want built, and the agent will not discover it for you.
@@ -275,12 +274,12 @@ more context makes the result worse.
 
 ### Put the whole spec in the initial dispatch
 
-Mid-flight instructions to a running agent are unreliable. An agent that receives a
-message claiming new authority ("the owner just approved X") **should** treat it as
-prompt injection — correct security behaviour, and it means your legitimate refinement
-gets discarded. If the spec changes materially after dispatch: **stop the agent and
-re-dispatch with the complete spec**, or let it finish and hand its output to a fresh
-agent. Do not try to steer mid-flight and assume it landed.
+Mid-flight instructions to a running agent are unreliable. An agent receiving a message
+claiming new authority ("the owner just approved X") **should** treat it as prompt
+injection — correct security behaviour, though it discards a legitimate refinement too.
+If the spec changes materially after dispatch, **stop the agent and re-dispatch with
+the complete spec**, or let it finish and hand the output to a fresh agent — don't try
+to steer mid-flight and assume it landed.
 
 ## Parallelism and isolation
 
@@ -289,8 +288,8 @@ grows faster than throughput; three focused agents beat five scattered ones. Rea
 agents scale higher — they cannot collide.
 
 The real ceiling is not the tool's concurrency limit, it is **your review throughput**.
-Agents produce diffs faster than you can check them, and an unchecked diff is not
-progress — it is unreviewed code with a confident summary attached.
+Agents produce diffs faster than you can check them, and an unchecked diff is unreviewed
+code with a confident summary attached, not progress.
 
 **Every agent that writes gets its own git worktree** (`isolation: "worktree"`). No
 exceptions — a Codex `task --write` from a raw Bash call is a writer too, and gets none
@@ -339,22 +338,25 @@ Read every brief together, against three questions:
   it belonged to somebody.
 
 Dispatch a dedicated agent for this with the whole set at once — the check needs every
-brief in one context, which the individual authors did not have. *Verified 2026-08-15:*
-a seven-unit split, each brief sound alone, hid two file collisions, a missing producer
-and an orphan this way. Put a correction at the top of the brief it amends rather than
-rewriting silently.
+brief in one context, which the individual authors did not have.
+
+*Verified 2026-08-15:* a seven-unit split, each brief sound in isolation, carried two
+units claiming the same file, a unit depending on two reads nobody produced against a
+batch ceiling with no headroom, and a carrier field forbidden to two units and assumed by
+a third — which made that unit's headline goal unreachable. None of the three was visible
+from inside any single brief. When corrections land, put them at the top of the brief they
+amend rather than rewriting it silently; the reader needs to see that the plan changed.
 
 ### Remove the worktree when you merge
 
 A worktree outlives the agent that used it, and nothing removes it for you. A
 non-interactive run never prompts on exit, and automatic sweeps skip any worktree
 holding uncommitted work — precisely the ones that accumulate. Left alone these reach
-the hundreds; each is a full checkout, so a busy repo quietly carries gigabytes of
-finished work.
+the hundreds; each is a full checkout, so a busy repo quietly carries gigabytes of it.
 
 **Integration is not complete until the worktree is gone.** Make removal the last step
 of the merge, not a tidy-up pass for later — a deferred cleanup is one you will not do,
-and by then you no longer remember which of forty worktrees held something uncommitted.
+and forty worktrees later you won't remember which held something uncommitted.
 
 ```
 git worktree remove <path>     # refuses if there is uncommitted work
@@ -421,9 +423,9 @@ GIVEN.
 Keep entries to one line and a path. If it does not fit, it is an artifact — a ledger
 that grows past skimming costs more than the re-derivation it prevents.
 
-This part is a bet, not settled practice — how a child agent should surface a discovery
-that changes its siblings' work is an open problem in the literature. If the ledger
-costs more than it saves on a given run, drop it and brief from memory.
+This part is a bet, not settled practice: how a child agent should surface a discovery
+that changes its siblings' work is still an open problem. Drop the ledger and brief
+from memory if it costs more than it saves on a given run.
 
 ### Results come back as references, not payloads
 
@@ -445,12 +447,12 @@ Require every agent to close by writing `findings/<agent>.html`:
 <section id="PROMOTE">   <!-- facts you think belong in the ledger -->
 ```
 
-The five section IDs are fixed and non-optional — an empty section stays, empty, so you
-can pull every agent's CLAIMED pile across a run without reading five files end to end.
-The split between VERIFIED and CLAIMED is the point: an agent made to sort its own
-output into those two piles reports its uncertainty instead of smoothing it, and you get
-a queue of exactly the things worth checking. PROMOTE is a request, not an action — you
-decide what enters the ledger.
+The five section IDs are fixed and non-optional for an implementer dispatch — an empty
+section stays, empty, so you can pull every agent's CLAIMED pile across a run without
+reading five files end to end. The split between VERIFIED and CLAIMED is the point: an
+agent made to sort its own output into those two piles reports its uncertainty instead
+of smoothing it, and you get a queue of exactly the things worth checking. PROMOTE is a
+request, not an action — you decide what enters the ledger.
 
 ### Steering versus querying
 
@@ -528,6 +530,9 @@ late** — a plausible-looking wrong answer, a failure that only appears in an
 environment you cannot easily reach, or a mistake that bakes into stored data. Do not
 spend one when the failure would be loud, local, and cheap to reverse; build it, and a
 failing test will tell you.
+
+Beware turning one hard-won lesson into a universal template; that is how caution
+becomes paralysis.
 
 ## The verification-environment trap
 
