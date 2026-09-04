@@ -53,12 +53,13 @@ an explicit prompt and `--effort high` rather than the purpose-built subcommand 
 is the only path on which effort is actually controllable. Keep `review --base <ref>`
 for a small interactive run you will watch yourself.
 
-A third rule for the pinning hook is designed but not yet built: read
-`model_reasoning_effort` from config at dispatch time and raise a permission prompt
-when it is `ultra`/`max` for a `review`/`adversarial-review`, or for a `task` carrying
-no `--effort`. It fails open on any error, and it stops treating a `-m` that merely
-appears inside prompt text — rather than as an actual flag — as an existing `--model`.
-Until it ships, the config check above is manual; do it yourself first.
+A third rule is worth adding to such a hook: read `model_reasoning_effort` from config
+at dispatch time and raise a permission prompt when it is `ultra`/`max` for a
+`review`/`adversarial-review`, or for a `task` carrying no `--effort`. Have it fail open
+on every error — a hook that raises is worse than no hook — and make sure it does not
+treat a `-m` that merely appears inside prompt text, rather than as an actual flag, as
+an existing `--model`. Until you add it, the config check above is manual; do it
+yourself first.
 
 ## `--write` is a writer
 
