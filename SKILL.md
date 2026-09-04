@@ -1,6 +1,6 @@
 ---
 name: orchestra
-description: "Orchestrate multi-agent implementation work as senior architect. Use when a task is large enough to need delegation — features, refactors, migrations, audits, or any multi-step build. You run on Opus 5 and plan, brief, verify and integrate; subagents implement. Sonnet is the workhorse, Haiku for strictly mechanical work, Fable as adversarial reviewer and architecture input, Codex (GPT-5.6 Terra) as an outside engine for second implementations and cross-engine review. Triggers: 'orchestrate this', 'use subagents', 'delegate this', 'build this out', or any task where you would otherwise write a lot of implementation code yourself."
+description: "Orchestrate multi-agent implementation work as senior architect. Use when a task is large enough to need delegation — features, refactors, migrations, audits, or any multi-step build. You run on Opus 5 and plan, brief, verify and integrate; subagents implement. Sonnet is the workhorse, Haiku for strictly mechanical work, Fable 5.1 as adversarial reviewer and architecture input, Codex (GPT-5.6 Terra) as an outside engine for second implementations and cross-engine review. Triggers: 'orchestrate this', 'use subagents', 'delegate this', 'build this out', or any task where you would otherwise write a lot of implementation code yourself."
 argument-hint: "[optional: the work to orchestrate]"
 ---
 
@@ -48,7 +48,7 @@ When you fan out writers, narrow their scope until the parts genuinely cannot in
 | Plan, brief, verify, integrate, decide | **You — Opus 5** | Architecture, sequencing, V&V, merges, deploys, talking to the user. The main chat runs Opus 5 and stays there |
 | Implement — the workhorse | **Sonnet** | Nearly all of it. Anything requiring a decision: features, refactors, tricky fixes, test design |
 | Mechanical only | **Haiku** | Where the spec fully determines the output: renames, format migrations, repetitive edits |
-| Adversarial review, architecture | **Fable** | Dispatched *against* work, not for it. Design critique, "is this the right shape", second opinion on a decision you are attached to |
+| Adversarial review, architecture | **Fable 5.1** | Dispatched *against* work, not for it. Design critique, "is this the right shape", second opinion on a decision you are attached to. The most capable seat and the most expensive — roughly twice Opus 5 per token — so it reviews, it does not build |
 | Outside implementation and review | **Codex — GPT-5.6 Terra** | A different engine with its own read of the repo. Second implementation of a hard change; review of work your own fleet produced and agreed on. Dispatched through the Codex plugin, not the `Agent` tool |
 
 **Never implement yourself.** Exceptions, and they are narrow: resolving a merge
@@ -80,10 +80,23 @@ Pick by *judgement required*, not by size.
   This is most implementation work, and most of your fleet should be this.
 - **Haiku** — the spec fully determines the output. Mechanical renames, moving files,
   applying a known pattern across many sites, updating references.
-- **Fable** — you want to be argued with. Architecture, contracts, "what am I missing",
-  reviewing a design you are attached to. Explicitly invite it to contradict you, and
-  give it standing to conclude the whole approach is wrong. See *The reviewer gets
-  clean context* for what to send it — which is less than you would think.
+- **Fable 5.1** — you want to be argued with. Architecture, contracts, "what am I
+  missing", reviewing a design you are attached to. Explicitly invite it to contradict
+  you, and give it standing to conclude the whole approach is wrong. See *The reviewer
+  gets clean context* for what to send it — which is less than you would think.
+
+  Three properties of the 5.1 generation change how you dispatch it. It is Anthropic's
+  most capable widely released model and is priced above Opus 5 — roughly twice per
+  token — so it earns its seat on judgement, never on volume; a Fable agent editing
+  files is a seat misspent. It thinks for as long as the problem takes, and a hard
+  review can run for many minutes, so dispatch it early and alongside other work rather
+  than parking the fleet on it. And it degrades under a prescriptive brief: a
+  step-by-step checklist written for an earlier model narrows what it will consider,
+  which is the opposite of why you dispatched it. Give it the requirement, the artifact
+  and the question, then get out of the way.
+
+  The `Agent` tool's value is still the bare string `'fable'`. 5.1 is which model that
+  resolves to, not a string you type.
 
 When unsure between Haiku and Sonnet, use Sonnet. A wrong mechanical edit is cheap;
 a wrong judgement call is not. The moment judgement enters a "mechanical" task the
@@ -662,6 +675,8 @@ You are the only one who talks to them. Agent reports are not shown.
 | A brief cites a fact nobody verified | Something wrote to the ledger that was not you |
 | Two writers made defensible but incompatible choices | You gave them the task without the decisions already made |
 | A reviewer agreed with everything | You sent it the implementer's reasoning; it reviewed the argument |
+| A Fable brief reads like a checklist | You prescribed the review and narrowed what it would consider; send the requirement, the artifact and the question |
+| The fleet is idle waiting on one review | Fable thinks for as long as the problem takes; dispatch it alongside other work, not as a gate |
 | You cannot write SUCCESS for a brief | You are not ready to dispatch it |
 | Judging work by how the report reads | Verify against the environment, not the prose |
 | Agents colliding on branches | You shared a checkout, or did not isolate |
