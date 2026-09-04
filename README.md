@@ -37,8 +37,8 @@ or "build this out".
 |---|---|
 | When to orchestrate | The cost multiple, and the cases where delegating makes the result worse |
 | Division of labour | What the orchestrator does vs what agents do, and the narrow exceptions |
-| Model selection | Choosing by *judgement required*, not task size — Opus 5 in the orchestrator seat, Sonnet as the workhorse, and Codex as a second engine |
-| The dispatch contract | The eight fields every brief carries, and how much context each kind of agent needs |
+| Model selection | Choosing by *judgement required*, not task size — Opus 5 in the orchestrator seat, Sonnet as the workhorse, Fable 5.1 for adversarial review, and Codex as a second engine (full runbook in `references/codex.md`) |
+| The dispatch contract | The eight fields every implementer brief carries, how review dispatches collapse to three, and how much context each kind of agent needs |
 | Shared context | The run directory, the ledger, and the return contract agents close with |
 | Parallelism | Fan-out width, worktree isolation, and deriving file ownership |
 | Verification | Checking against the environment rather than the report |

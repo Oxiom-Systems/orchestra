@@ -1,6 +1,6 @@
 {
   "name": "orchestra",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Orchestrate multi-agent implementation work as senior architect. You plan, brief, verify and integrate; subagents implement.",
   "author": {
     "name": "Oxiom Systems",
