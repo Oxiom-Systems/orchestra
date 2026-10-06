@@ -5,18 +5,18 @@
     "url": "https://github.com/Oxiom-Systems"
   },
   "metadata": {
-    "description": "Orchestrate multi-agent implementation work as senior architect."
+    "description": "Role-based Codex orchestration with Astra expert review, Sol orchestration, Terra implementation, and Luna simple tasks."
   },
   "plugins": [
     {
       "name": "orchestra",
       "source": "./",
-      "description": "Orchestrate multi-agent implementation work as senior architect. You plan, brief, verify and integrate; subagents implement.",
-      "version": "1.1.0",
+      "description": "Role-based Codex orchestration: Astra expert review, Sol complex orchestration, Terra implementation, and Luna simple mechanical tasks.",
+      "version": "1.2.0",
       "homepage": "https://github.com/Oxiom-Systems/orchestra",
       "repository": "https://github.com/Oxiom-Systems/orchestra",
       "license": "MIT",
-      "keywords": ["orchestration", "multi-agent", "subagents", "delegation", "architecture", "claude-code"]
+      "keywords": ["orchestration", "multi-agent", "subagents", "delegation", "architecture", "codex", "claude-code"]
     }
   ]
 }

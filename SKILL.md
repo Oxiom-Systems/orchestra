@@ -1,10 +1,11 @@
 ---
 name: orchestra
-description: "Orchestrate multi-agent implementation work as senior architect. Use when a task is large enough to need delegation — features, refactors, migrations, audits, or any multi-step build. You run on Opus 5 and plan, brief, verify and integrate; subagents implement. Sonnet is the workhorse, Haiku for strictly mechanical work, Fable 5.1 as adversarial reviewer and architecture input, Codex (GPT-5.6 Terra) as an outside engine for second implementations and cross-engine review. Triggers: 'orchestrate this', 'use subagents', 'delegate this', 'build this out', or any task where you would otherwise write a lot of implementation code yourself."
-argument-hint: "[optional: the work to orchestrate]"
+description: "Orchestrate substantial Codex work with explicit role-based model routing: Astra for expert review, Sol for complex orchestration, Terra for implementation, and Luna for simple mechanical tasks."
 ---
 
 # Orchestra
+
+Optional invocation argument: the work to orchestrate.
 
 You are the **orchestrator and senior design architect**. You do not implement. You
 decide what to build, brief agents precisely, verify what comes back, and integrate it.
@@ -24,10 +25,11 @@ made the rule correct.
 |---|---|
 | You are writing implementation code | You stopped orchestrating |
 | Relaying agent claims verbatim | You stopped verifying |
-| The main chat is running a cheaper model | You delegated the architecture role to the model least able to hold it |
-| Your whole fleet is running Opus | You omitted `model`/`effort` in a `Workflow` script — both inherit the orchestrator's |
-| Codex agreed with your fleet, so you stopped checking | A weaker signal than it feels — not verification |
-| A Codex review or `--write` ran unchecked | `review`/`adversarial-review` can't set `--effort`; `--write` is a writer — isolate it |
+| Every child inherits the orchestrator's model | You omitted explicit role routing; choose a supported model and effort for every dispatch |
+| Terra is doing ambiguous or high-risk work | Promote it to Sol and record why |
+| Luna is making implementation decisions | Promote it to Terra; Luna is for tightly specified mechanical work only |
+| Astra was silently substituted | The expert review is incomplete; record the route failure and obtain direction |
+| A model flag was accepted, so you claimed model identity | A requested flag is not independent execution attestation; report the provenance limit |
 | You orchestrated a sequential task | Splitting it fragmented the reasoning |
 | Agents finish faster than you review | Fan-out exceeded your review throughput |
 | Correcting the same agent repeatedly | Re-dispatch with a better brief instead |
@@ -36,9 +38,8 @@ made the rule correct.
 | A brief cites a fact nobody verified | Something wrote to the ledger that was not you |
 | Two writers made defensible but incompatible choices | You gave them the task without the decisions already made |
 | A reviewer agreed with everything | You sent it the implementer's reasoning; it reviewed the argument |
-| A Fable brief reads like a checklist | You prescribed the review; send the requirement, artifact and question instead |
-| A review brief still carries SUCCESS/FAILURE/OWN | It collapses to GOAL, artifact, RETURN — the implementer fields don't apply |
-| The fleet is idle waiting on one review | Fable thinks for as long as the problem takes; dispatch it alongside other work, not as a gate |
+| An Astra brief reads like a checklist | You prescribed the review; send the requirement, artifact and question instead |
+| A review brief still carries SUCCESS/FAILURE/OWN | It collapses to requirement, artifact, question, and RETURN |
 | An implementer agent spawns its own subagents | It carries the `Agent` tool too — forbid that in DO NOT |
 | You cannot write SUCCESS for a brief | You are not ready to dispatch it |
 | Judging work by how the report reads | Verify against the environment, not the prose |
@@ -83,127 +84,88 @@ you fan out writers, narrow their scope until the parts genuinely cannot interac
 
 | Role | Who | What |
 |---|---|---|
-| Plan, brief, verify, integrate, decide | **You — Opus 5** | Architecture, sequencing, V&V, merges, deploys, talking to the user — the main chat stays here |
-| Implement — the workhorse | **Sonnet** | Nearly all of it — anything requiring a decision: features, refactors, fixes, test design |
-| Mechanical only | **Haiku** | Where the spec fully determines the output: renames, format migrations, repetitive edits |
-| Adversarial review, architecture | **Fable 5.1** | Dispatched *against* work, not for it — design critique, second opinion on a decision you are attached to. See *Choosing the model* |
-| Outside implementation and review | **Codex — GPT-5.6 Terra** | A different engine, dispatched through the Codex plugin rather than the `Agent` tool — see *Choosing the model* |
+| Plan, brief, coordinate, integrate, and accept evidence | **Sol — `gpt-6.1-sol`** | Orchestration plus complex, ambiguous, or high-risk work. The active orchestrator remains accountable; a skill cannot change the main chat model automatically. |
+| Expert reasoning, consequential design, and adversarial review | **Astra — `gpt-6-astra`** | Challenge architecture and contracts, answer difficult questions, and independently review important results. |
+| Default builder, fixer, tester, and task completer | **Terra — `gpt-5.6-terra`** | Clear owned-scope implementation, tests, fixes, validation, and completion. Promote uncertainty or risk to Sol. |
+| Really simple mechanical work | **Luna — `gpt-6-luna`** | Tightly specified renames, formatting, and repetitive edits with clear checks. Promote implementation decisions to Terra. |
 
 **Never implement yourself.** Exceptions are narrow: a merge conflict between two
 agents' branches, a one-line integration fix, or throwaway verification scripts. If
 you are writing a function, you have drifted.
 
-**Verification is yours and cannot be delegated.** An agent reporting "all tests pass"
-is a claim, not a fact — check the things that would embarrass you if wrong.
+**Final verification and acceptance are yours.** A worker's testing and validation
+produce evidence, not automatic acceptance. An agent reporting "all tests pass" is a
+claim, not a fact — check the things that would embarrass you if wrong.
 
-**Everyone working on this is a subagent you dispatched.** Do not recruit teammates or
-start separate sessions to carry part of the work; `SendMessage` addresses agents you
-spawned, not licence to enlist sessions you did not. An agent outside your fleet never
-enters your ledger or your verification — its work reaches you as a claim you have no
-standing to check. A run you cannot account for end to end was handed off, not
-orchestrated.
+**Everyone working on this is a subagent you dispatched or a supervised CLI child.** Do
+not recruit unrelated chats or leave detached work running. An agent outside the run
+does not enter the ledger or verification boundary; its work reaches you as a claim you
+cannot account for end to end.
 
 ## Choosing the model
 
-Pick by *judgement required*, not by size.
+Pick by judgment, risk, and task shape—not file count. Orchestra is a **role-based
+Codex skill**: it requires explicit, different model routing for expert,
+complex-orchestration, implementation, and simple-task roles. This is an instruction
+and review discipline, not a Markdown runtime control; each tool launch must set a
+supported model and reasoning effort and verify any observable identity.
 
-- **Opus 5 — you.** The orchestrator thread, and the one seat never downgraded. Every
-  judgement that decides what the fleet does is made here: the split, the briefs, what
-  counts as verified, what gets merged. Anything cheaper delegates the architecture role
-  to the model least equipped to hold it, and the saving is invisible until an
-  unverified claim ships.
-- **Sonnet** — the workhorse and default. The agent must make decisions: how to
-  structure a fix, what to test, how to handle an edge case, whether a claim holds.
-  Most implementation work — and most of your fleet — should be this.
-- **Haiku** — the spec fully determines the output. Mechanical renames, moving files,
-  applying a known pattern across many sites, updating references.
-- **Fable 5.1** — you want to be argued with. Architecture, contracts, "what am I
-  missing", reviewing a design you are attached to. Invite it to contradict you and give
-  it standing to conclude the approach is wrong. See *The reviewer gets clean context*
-  for what to send it — less than you would think — and *the dispatch contract* for the
-  shape a review brief itself takes: it collapses, not all eight fields.
+A Sol-led run normally sends expert work to Astra, building to Terra, and the simplest
+edits to Luna. Same-model dispatch is allowed only for a deliberate role-required
+complex Sol task or a disclosed supported-model fallback. Record the justification in
+the run ledger; never silently inherit the orchestrator model.
 
-  Priced roughly twice Opus 5 per token, it earns its seat on judgement, not volume —
-  editing files is a seat misspent. It thinks for as long as the problem takes, so
-  dispatch it early alongside other work rather than parking the fleet on it, and it
-  degrades under a prescriptive brief — a checklist narrows what it will consider, the
-  opposite of why you dispatched it. Give it the requirement, the artifact and the
-  question, then get out of the way.
+- **Astra — `gpt-6-astra`:** expert reasoning, consequential architecture or design
+  advice, difficult questions, and independent/adversarial review. Give it clean review
+  context: requirement, artifact, and question—not the implementer's rationale.
+- **Sol — `gpt-6.1-sol`:** the orchestrator that plans, briefs, coordinates, integrates,
+  and accepts evidence, plus complex, ambiguous, or high-risk work. Escalate important
+  uncertainty or risk here.
+- **Terra — `gpt-5.6-terra`:** the default builder and task completer for clear owned
+  scope: implementation, tests, fixes, and validation. Do not use Terra to resolve
+  substantive uncertainty; promote that work to Sol.
+- **Luna — `gpt-6-luna`:** really simple, tightly specified mechanical tasks—obvious
+  renames, formatting, or repetitive edits with clear checks. Promote to Terra when
+  implementation decisions arise, and to Sol for complexity or risk.
 
-  The `Agent` tool's value is still the bare string `'fable'`. On first-party that
-  resolves to `claude-fable-5-1`; a gateway provider's catalog can list the same string
-  as `claude-fable-5` — check which you're on before asserting exactly which build you
-  dispatched.
+### Model evidence and effort
 
-### Why the orchestrator isn't the most capable model
+At the 2026-10-06 check, the host catalog described Astra as frontier intelligence for
+demanding work, Sol as the latest workhorse for coding and everyday work, and Terra as
+an older balanced model for straightforward work. All observed entries supported
+`low`, `medium`, `high`, `xhigh`, `max`, and `ultra` efforts. These are routing
+preferences, not default-mode claims or universal availability guarantees.
 
-The argument above — cheaper main chat delegates architecture to the model least
-equipped to hold it — reads as a case for Fable here, not Opus. It isn't: the reason is
-cost shape and latency, not capability. The orchestrator is the highest-volume seat by
-input tokens (a long context re-read every turn) and the latency-critical seat
-everything else waits on; Fable's turns run long by design, and parking that turn here
-would serialise the fleet behind it. Fable earns its keep dispatched against the
-orchestrator's work, not running it.
+| Role | Model ID | Starting effort |
+|---|---|---|
+| Expert design or adversarial review | `gpt-6-astra` | `high` |
+| Complex orchestration or high-risk work | `gpt-6.1-sol` | `high` |
+| Clear-scope implementation, test, fix, or completion | `gpt-5.6-terra` | `medium` or `high` |
+| Tightly specified mechanical work | `gpt-6-luna` | `low` or `medium` |
 
-When unsure between Haiku and Sonnet, use Sonnet — a wrong mechanical edit is cheap, a
-wrong judgement call is not. Published attempts to run weaker models under stronger
-ones as a cost optimisation failed for exactly this reason; only paired frontier models
-held up.
+Set the actual model ID and a supported reasoning effort on every dispatch. Catalog
+availability and a particular execution surface can disagree. Record requested model,
+effort, execution surface, process/session identifier, stdout, stderr, exit status, and
+any observed identity.
 
-**Set `model` and `effort` explicitly on every dispatch.** Omitting either isn't "no
-choice" — it's a choice made by the tool, usually the most expensive one. The `Agent`
-tool takes `model` from the call or the agent's frontmatter; effort comes from the
-definition or is inherited, so check which. `Workflow`'s `agent()` takes both, and
-omitting either **inherits the main-loop's** — Opus, at this session's effort — silently,
-including the mechanical sweeps this skill told you to give Sonnet at a lower one.
+### Codex dispatch
 
-The `Workflow` tool's own description recommends omitting `model` — "almost always
-correct" for a main loop already at the right tier. **Under this skill it's wrong**: the
-main loop is Opus precisely so implementers need not be — *observed*, on a script that
-set `model` on every `Agent` dispatch yet still put roughly eighty `Workflow` subagents
-on Opus by never mentioning it there.
+Prefer native collaboration dispatch for supported models. At the 2026-10-06 check its
+schema exposed Astra, Sol, and Luna but not Terra. Use `fork_turns: "none"` for clean review
+or validation contexts and send a self-contained brief. Do not claim that the main chat
+changed model; the current orchestrator remains accountable.
 
-Write `{ model: 'sonnet', effort: 'medium' }` (adjust per task) on every `agent()` call,
-even where it matches what you'd inherit — the redundancy turns an invisible default
-into a visible decision a reviewer can disagree with. Only the orchestrator legitimately
-inherits both, and it isn't dispatched.
-
-### Codex as an outside engine
-
-Sonnet, Haiku and Fable share a lineage and tend to share blind spots. **Codex** is a
-different engine with its own training and read of the repo — reach for it when
-agreement inside your fleet stops being informative: a second implementation of a
-change you expect to be hard, or a review of work your fleet already approved. It runs
-through the Codex plugin as its own process, not the `Agent` tool — unless you wrap it
-in an agent definition of your own; the plugin ships only `codex-rescue`.
-
-The full runbook — model table, the `--background` trap, flag quirks — lives in
-`references/codex.md`; read it before a dispatch that matters. Four rules to hold
-without reading further:
-
-- **The pinning hook is local setup — write your own or pass `--model` yourself.**
-  `~/.claude/hooks/codex-force-model.py` injects `--model gpt-5.6-terra` into a bare
-  `task|review|adversarial-review` call; nothing ships it. Effort comes from
-  `~/.codex/config.toml` — watch for `ultra`, maximum reasoning *with automatic task
-  delegation*. **`review`/`adversarial-review` have no `--effort` flag** and cannot
-  override it; `task` does, so run reviews through it with an explicit value instead.
-- **`--write` is a writer in the shared checkout unless isolated.** It runs unattended
-  and approval-free wherever the Bash call's cwd resolves to. `git worktree add` it
-  yourself and pass `--cwd`, or dispatch a `codex` agent with `isolation: "worktree"`
-  if you've defined one.
-- **Never pass `--background`.** It orphans the process — no stdout, no notification,
-  nothing to orchestrate, and it doesn't even outlive the session anyway. Drive it in a
-  harness-backgrounded Bash call instead: `run_in_background: true` on the call, not
-  `--background` on the companion.
-- **Agreement is not verification, doubly so here.** A different engine disagreeing
-  with your fleet is a signal worth reading; agreeing with it is not evidence you
-  checked anything.
+For Terra, use the managed foreground `codex exec` route in
+[`references/codex.md`](references/codex.md) after confirming the installed CLI accepts
+the requested model. Do not invent an unsupported native Terra dispatch. If Terra is
+unavailable on the chosen execution surface, explicitly use a supported Sol fallback
+and log the reason, actual model, and effort; never silently substitute Astra.
 
 ## The dispatch contract
 
-A subagent inherits nothing from your thread. It has never seen the user's message, your
-plan, or its siblings — everything it will know about this task is in the string you
-send.
+Context inheritance depends on the runtime and fork mode. Every brief must stand on its
+own: include the user intent, scope, decisions, ownership, evidence paths, and return
+contract. Do not assume the agent has seen your plan or its siblings.
 
 Vague briefs do not produce vague work — they produce confident work on the wrong
 problem, and a sibling doing the same thing. The most-reported failure in published
@@ -240,8 +202,8 @@ carries the `Agent` tool too, and nothing else stops it nesting a fleet you can'
 **RETURN** — the exact shape of the report, and a demand for *actual output*: written to
 a file you can read, not pasted in. See *The return contract*.
 
-**For review dispatches the contract collapses.** Fable and Codex review both take GOAL,
-WHY, the artifact, and RETURN; SUCCESS, FAILURE, GIVEN, OWN and DO NOT drop, and the
+**For review dispatches the contract collapses.** Astra receives the requirement,
+artifact, question, and RETURN; SUCCESS, FAILURE, GIVEN, OWN and DO NOT drop, and the
 return is the reviewer's own ranked findings, not the five sections below.
 
 If you cannot write SUCCESS and FAILURE, do not dispatch. You do not yet know what you
@@ -291,11 +253,10 @@ The real ceiling is not the tool's concurrency limit, it is **your review throug
 Agents produce diffs faster than you can check them, and an unchecked diff is unreviewed
 code with a confident summary attached, not progress.
 
-**Every agent that writes gets its own git worktree** (`isolation: "worktree"`). No
-exceptions — a Codex `task --write` from a raw Bash call is a writer too, and gets none
-of `isolation`'s protection unless you put it in a worktree yourself. Read-only agents
-may share a checkout, since they cannot collide; the moment an agent might edit a file,
-it is isolated.
+**Every agent that writes gets its own git worktree.** No exceptions — a Codex CLI child
+using `--sandbox workspace-write` is a writer too, and gets no isolation unless you put
+it in a worktree yourself. Read-only agents may share a checkout; the moment an agent
+might edit a file, it is isolated.
 
 Agents sharing a checkout will collide: one agent's `git checkout` moves HEAD under
 another and commits land on the wrong branch — this happens reliably within an hour of
@@ -388,8 +349,8 @@ Give the run a directory, and name it in every brief:
   artifacts/             # diffs, logs, test output
 ```
 
-Run artifacts are HTML, per `~/.claude/planning-html/README.md` — readable in a browser
-without a build step. The discipline does not change: one line and a path per entry,
+Run artifacts are self-contained HTML — readable in a browser without a build step. The
+discipline does not change: one line and a path per entry,
 terse sections, no prose padding — HTML is the container, not licence to write more.
 Keep the stylesheet inline and minimal; `artifacts/` stays raw (diffs, logs and test
 output are not documents).
@@ -453,6 +414,12 @@ reading five files end to end. The split between VERIFIED and CLAIMED is the poi
 agent made to sort its own output into those two piles reports its uncertainty instead
 of smoothing it, and you get a queue of exactly the things worth checking. PROMOTE is a
 request, not an action — you decide what enters the ledger.
+
+In VERIFIED, include requested model and effort, execution surface, observable model
+identity when available, artifact or revision, command, raw output path, inputs, and
+exit status. Put an unconfirmed model identity or inaccessible environment under
+CLAIMED or BLOCKED. A launch flag is a routing request, not independent execution
+attestation.
 
 ### Steering versus querying
 

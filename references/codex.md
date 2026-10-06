@@ -1,182 +1,102 @@
-# Codex runbook
+# Codex routing runbook
 
-Reference material for dispatching Codex (GPT-5.6 Terra) as an outside engine.
-`SKILL.md` carries the four rules that must survive without this file; read this one
-before a dispatch that matters — a hard second implementation, or a review you intend
-to act on.
+Use this runbook when dispatching an Orchestra role. It documents observed host
+capabilities on 2026-10-06, not universal availability, pricing, context, or execution
+identity guarantees. Recheck the catalog and the actual dispatch surface immediately
+before each launch.
 
-## Models
+## Role routing
 
-| Model | Slug | What it is | Default effort |
-|---|---|---|---|
-| **Terra** | `gpt-5.6-terra` | Balanced agentic coding model for everyday work | `medium` |
-| **Sol** | `gpt-5.6-sol` | Reliable agentic workhorse for everyday tasks | `low` |
-| **Luna** | `gpt-5.6-luna` | Fast and affordable agentic coding model | `medium` |
+| Role | Preferred model | Use it for |
+|---|---|---|
+| Expert | `gpt-6-astra` | Consequential architecture/design advice, difficult questions, and adversarial review |
+| Complex orchestration | `gpt-6.1-sol` | Planning, briefing, coordination, integration, evidence acceptance, and complex or high-risk work |
+| Builder | `gpt-5.6-terra` | Default implementation, tests, fixes, validation, and task completion within a clear owned scope |
+| Simple | `gpt-6-luna` | Really simple, tightly specified mechanical tasks with clear checks |
 
-All three carry a 272k context window. Effort runs `low → medium → high → xhigh → max →
-ultra`, and Luna stops at `max`. `ultra` means maximum reasoning *with automatic task
-delegation* — Codex fanning out underneath you, a second orchestrator nested inside your
-own, running a split you did not choose and cannot verify.
+Use a different explicit model for each role; do not let a subagent inherit the
+orchestrator's model. A deliberate complex Sol task may use Sol again, and a supported
+model fallback is permitted only when recorded with its reason in the ledger.
 
-Nothing in the local model catalog supports calling Sol the frontier choice or Terra
-merely "everyday" by comparison — the catalog describes Terra as the balanced choice and
-Sol as the reliable workhorse. Check a model's own catalog entry before asserting which
-is more capable; it may not be what the name suggests.
+Promote Luna to Terra when implementation decisions arise. Promote Terra to Sol when
+the task becomes complex, ambiguous, or high-risk. Ask Astra for important expert input
+or an independent adversarial read. A role preference does not change the main chat
+model: the active orchestrator remains accountable for final acceptance.
 
-Terra is the everyday choice; keep it unless you have a reason to switch. Reach for Sol
-as a second, same-lineage read when Terra's answer feels shaky — not because the catalog
-calls it more capable, since it does not — and reach for Luna when volume matters more
-than depth. Prefer raising Terra's effort before switching model: the axis that usually
-helps is reasoning depth, not a different engine.
+At this check, Astra, Sol, and Terra were observed with `low`, `medium`, `high`,
+`xhigh`, `max`, and `ultra` effort choices. Start at `high` for Astra/Sol, `medium` or
+`high` for Terra, and `low` or `medium` for Luna, then choose only an effort accepted by
+the surface you are actually using.
 
-## Pinning the model is a pattern, not a given
+## Native dispatch
 
-Nothing ships a model pin for you. The author pins Terra locally with a PreToolUse hook,
-`~/.claude/hooks/codex-force-model.py`, injecting `--model gpt-5.6-terra` into any
-`codex-companion.mjs task|review|adversarial-review` call that does not already carry a
-`--model` — that hook lives outside every plugin; write your own if you want the
-guarantee, or pass `--model` explicitly on every call instead. Whichever you choose, do
-not trust `~/.codex/config.toml` to hold the model you expect — the Codex desktop app
-rewrites that file whenever a model is picked in its UI, and it has been found reading
-`model = "gpt-5.6-sol"` while nothing in the session set it there.
+The native collaboration schema exposed Astra, Sol, and Luna, but not Terra. Give
+every agent a self-contained brief and use `fork_turns: "none"` for fresh review or
+validation context. Set both model and effort explicitly; do not use a full-history fork
+when the runtime would inherit the parent settings.
 
-**Effort is not pinned by the hook. It comes from `~/.codex/config.toml`, and `review` /
-`adversarial-review` have no `--effort` flag to override it with.** Check
-`grep -E '^(model|model_reasoning_effort)' ~/.codex/config.toml` before relying on
-either — it answers in milliseconds. `codex --strict-config doctor` is not a reliable
-substitute: it can take minutes scanning rollout history and has been observed to print
-no active-model line at all. If config reads `ultra` or `max`, a `review`/
-`adversarial-review` dispatch runs there regardless of what you intended, and Codex's
-own `AGENTS.md` gives it standing authorization to fan out review sub-agents on top of
-that. `task` does take `--effort`; when effort matters, run the review as a `task` with
-an explicit prompt and `--effort high` rather than the purpose-built subcommand — that
-is the only path on which effort is actually controllable. Keep `review --base <ref>`
-for a small interactive run you will watch yourself.
-
-A third rule is worth adding to such a hook: read `model_reasoning_effort` from config
-at dispatch time and raise a permission prompt when it is `ultra`/`max` for a
-`review`/`adversarial-review`, or for a `task` carrying no `--effort`. Have it fail open
-on every error — a hook that raises is worse than no hook — and make sure it does not
-treat a `-m` that merely appears inside prompt text, rather than as an actual flag, as
-an existing `--model`. Until you add it, the config check above is manual; do it
-yourself first.
-
-## `--write` is a writer
-
-`executeTaskRun` sets `sandbox: request.write ? "workspace-write" : "read-only"`, with
-`approvalPolicy: "never"`, resolved against whatever directory the Bash call's cwd
-`git rev-parse --show-toplevel`s to. `isolation` is an `Agent`-tool feature; a raw Bash
-call gets none of it, and a hand-written `codex` agent that merely wraps the Bash call
-does not create a worktree on its own either — you have to ask for one. A `task --write`
-dispatched from the orchestrator's own checkout is therefore an unattended,
-approval-free writer sitting in the same checkout your other agents are using — exactly
-the collision *Parallelism and isolation* says happens reliably within an hour.
-
-If you have defined a `codex` agent (see *Arriving as an `Agent`-tool subagent* below),
-dispatch it with `isolation: "worktree"`; otherwise `git worktree add` yourself first and
-pass `--cwd <worktree>` (the companion accepts `--cwd`/`-C`). Job state then lives under
-that worktree only (see below) — the run is visible from there and nowhere else.
-
-## Never pass `--background`
-
-That flag calls `spawnDetachedTaskWorker` — `spawn(…, {detached: true, stdio:
-"ignore"})` followed by `child.unref()`. The run is orphaned from the session on
-purpose: no stdout, no exit signal, no entry in the Background tasks panel, nothing you
-can orchestrate. It is why dispatching the `codex-rescue` subagent with this flag
-returns **empty** while the job runs on — you spend a Claude subagent's tokens on a
-shell call and find the real output later, if you remember to look.
-
-The plugin's own SessionEnd hook (`cleanupSessionJobs`) terminates every queued/running
-job tied to this session and tears the broker down on exit — so `--background` does not
-even buy the one thing its name promises, a run that outlives the session. It is the
-one flag on this surface that does the opposite of what it says.
-
-Drive the companion in its **foreground** mode instead, inside a harness-backgrounded
-Bash call: `run_in_background: true` on the Bash tool call, no `--background` flag on
-the companion itself.
-
-```
-Bash(run_in_background: true, command:
-  node "$CODEX/scripts/codex-companion.mjs" task --write \
-       --model gpt-5.6-terra --effort high "<prompt>")
+```json
+{
+  "task_name": "expert_review",
+  "model": "gpt-6-astra",
+  "reasoning_effort": "high",
+  "fork_turns": "none",
+  "message": "GOAL: ...\nWHY: ...\nGIVEN: ...\nRETURN: findings/expert.html"
+}
 ```
 
-`$CODEX` is the plugin root (`~/.claude/plugins/cache/openai-codex/codex/<version>`).
-That one change buys the whole orchestration surface, because the process is now the
-harness's:
+Use the same shape for Sol and Luna with their role-appropriate IDs and supported
+efforts. Record the native agent ID, requested model/effort, raw result location, and
+any observable reported identity. An accepted request is not independent attestation
+that a particular model executed.
 
-- it appears in the **Background tasks panel** (`/tasks`) with a task id
-- progress streams live into the task's output file — `Read` it at any point mid-run
-- you are **re-invoked by a completion notification** when it exits; no polling loop
-- `TaskStop` (the tool `KillShell` now aliases to) cancels the client's connection
-- the plugin's own registry still works — foreground runs go through `runTrackedJob`,
-  so `status --all`, `result <job-id> [--json]` and `cancel <job-id>` see the job as
-  before
+## Managed Terra route
 
-The companion has no internal foreground timeout; it blocks until Codex finishes.
-Because the call is backgrounded, the 10-minute ceiling on a foreground Bash call does
-not apply.
+Do not invent a native Terra launch where native dispatch rejects it. First recheck
+`codex exec --help` and the installed CLI's current catalog. The observed CLI supports
+`--ephemeral`, `--model`, `-c model_reasoning_effort`, `--sandbox`, `--json`,
+`--output-last-message`, `--cd`, and `--skip-git-repo-check`.
 
-Cancelling only stops half of it: by default the companion connects through a detached
-shared broker (`CodexAppServerClient.connect` → `ensureBrokerSession` →
-`spawn(…, {detached: true})` + `unref()`), so killing the Bash task kills the client —
-the Codex turn keeps running, and billing, on the broker until you call
-`cancel <job-id>` (which does `turn/interrupt`) or the session ends.
+Run Terra as a tracked foreground `codex exec` child. Keep its execution session or
+process identifier, stdout, stderr, exit status, final response, and artifacts. Never
+detach it (`nohup`, `disown`, `&`, or a separate user-owned chat). Use `read-only` for
+analysis; use `workspace-write` only in an assigned isolated workspace for authorized
+implementation.
 
-## Two further traps
+Replace the `/path/to` paths with the actual workspace and run paths, and create
+`findings/` and `artifacts/` first. The brief tells the worker to write
+`findings/terra.html`; capture its final paths-and-summary response separately.
 
-- **Job state is scoped to the repository/cwd.** `resolveStateDir` keys on
-  `git rev-parse --show-toplevel`, which for a linked worktree is the worktree itself,
-  not the main checkout. Poll from the same directory you dispatched from, or
-  `status --all` reports "No jobs recorded yet" while the job is perfectly alive
-  somewhere else. `status`/`result`/`cancel` also filter by
-  `CODEX_COMPANION_SESSION_ID`; `--all` only lifts the eight-job cap, it does not cross
-  sessions.
-- **Also check the file the prompt asked for.** A detached or crashed job frequently
-  writes its findings correctly even when nothing came back through the wrapper — treat
-  a missing return as "look on disk", not as "it failed".
-
-## Flags
-
-`--effort` accepts only `none|minimal|low|medium|high|xhigh`; `max` and `ultra` come
-from `~/.codex/config.toml` and are rejected as flags — there is no
-`--model_reasoning_effort` flag, that is the config key only. An unrecognized `--flag`
-is not rejected either: the parser turns it into a positional, so it lands silently
-inside the prompt text Codex receives.
-
-**`task` has no `--wait`.** Foreground is already `task`'s default, so there is nothing
-to wait for. `--wait` is a real boolean on `review`, `adversarial-review` and `status`
-— not on `task`. `--background` is a real boolean on `review`, `adversarial-review` and
-`task` — not on `status`. Passing `["--wait", "<prompt>"]` to `task` returns
-`{options:{}, positionals:["--wait","<prompt>"]}`: the flag is silently prepended to the
-text Codex is asked to work on.
-
-`/codex:rescue` and `/codex:review` remain fine for a small interactive run you will
-watch:
-
-```
-/codex:rescue --model gpt-5.6-terra --effort high <task>
+```bash
+codex exec --ephemeral --model gpt-5.6-terra \
+  -c 'model_reasoning_effort="high"' \
+  --sandbox workspace-write --json \
+  --cd /path/to/assigned-workspace \
+  --output-last-message /path/to/run/artifacts/terra-final.txt \
+  - < /path/to/run/artifacts/terra-brief.txt \
+  > /path/to/run/artifacts/terra-events.jsonl \
+  2> /path/to/run/artifacts/terra-stderr.txt
 ```
 
-`--model gpt-5.6-sol` overrides a single one.
+Use `--skip-git-repo-check` only when the installed help supports it and the assigned
+workspace is intentionally not a Git repository. Prefer these per-run flags over global
+configuration, hooks, or authentication changes.
 
-## Arriving as an `Agent`-tool subagent
+If Terra is unavailable through every supervised surface, dispatch a supported Sol
+fallback explicitly and record the Terra-to-Sol fallback, reason, actual model, and
+effort. Never silently substitute Astra for builder work.
 
-The `openai-codex` plugin ships exactly one agent, `codex-rescue` — dispatch it
-(`subagent_type: 'codex:codex-rescue'`, or `/codex:rescue`) when a Claude should hold
-and relay a Codex run: visible in the agent panel, its output kept out of your own
-context.
+## Luna availability
 
-A `codex` agent that wraps the foreground-Bash pattern above verbatim — so a `Workflow`
-can fan several runs out in parallel with `agent(prompt, {agentType: 'codex'})`, or so
-the type name reads `codex` rather than `codex-rescue` — is not something the plugin
-ships. It is a short agent definition you write yourself, under
-`~/.claude/agents/codex.md` or wherever your own agents live, if you want that shape.
-Use the raw Bash call directly instead when you want the output yourself, at zero
-subagent cost — that path needs no agent definition at all.
+Native dispatch at this check exposed `gpt-6-luna`. The installed CLI cached catalog
+exposed the older `gpt-5.6-luna` instead. Prefer the latest Luna model that the chosen
+surface actually supports. If only the older Luna or Terra is supported, record that
+fallback and its checks; never silently substitute it.
 
-## The rule that still governs it
+## Evidence and review
 
-Agreement is not verification here either, and doubly so: a different engine
-disagreeing with your fleet is a signal worth reading; a different engine *agreeing*
-with it is not. Codex output is a claim until you check it, same as any other agent's.
+For a clean Astra review, provide only the requirement, final artifact, and the question
+to answer—not the implementer's reasoning or self-assessment. For every delegated test
+or validation, preserve the command, inputs, raw output, exit code, artifact/revision,
+execution surface, requested model/effort, and any observed identity. That evidence
+informs acceptance; it does not transfer acceptance from the orchestrator.

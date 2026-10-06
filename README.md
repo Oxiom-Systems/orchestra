@@ -1,101 +1,95 @@
 # Orchestra
 
-A [Claude Code](https://claude.com/claude-code) skill for orchestrating multi-agent
-implementation work. You act as senior architect: plan, brief, verify, integrate.
-Subagents implement.
+Orchestra is a role-based **Codex** skill for substantial multi-agent work. It keeps
+briefing, isolation, evidence, verification, and accountability with the orchestrator
+while requiring explicit model routing for subagent roles. It is not a claim that a
+Markdown skill can switch the active chat's model automatically.
 
-The failure mode this skill exists to prevent: an orchestrator who drifts into writing
-code, stops verifying, and starts relaying agent reports as if they were facts.
+## The model split
 
-## Install
+| Role | Model | Use |
+|---|---|---|
+| Expert | Astra — `gpt-6-astra` | Consequential architecture/design advice, difficult questions, and independent adversarial review |
+| Complex orchestration | Sol — `gpt-6.1-sol` | Plan, brief, coordinate, integrate, accept evidence, and handle complex or high-risk work |
+| Default builder | Terra — `gpt-5.6-terra` | Implement, test, fix, validate, and complete clear owned-scope tasks |
+| Simple mechanical work | Luna — `gpt-6-luna` | Really simple, tightly specified renames, formatting, and repetitive edits with clear checks |
 
-**As a plugin:**
+A Sol-led run normally routes experts to Astra, builders to Terra, and the simplest
+edits to Luna. This prevents every child from silently inheriting the orchestrator's
+model. Same-model dispatch is only for a deliberate role-required complex Sol task or
+a disclosed supported-model fallback; record the justification in the run ledger.
+
+Promote Luna to Terra when implementation decisions arise, and Terra to Sol when the
+work becomes complex, ambiguous, or high-risk. See the focused
+[Codex routing runbook](references/codex.md) for execution-surface checks and Terra's
+managed CLI route.
+
+## Install for Codex
+
+```bash
+git clone https://github.com/Oxiom-Systems/orchestra.git ~/.agents/skills/orchestra
+```
+
+Then invoke it in a Codex session:
+
+```text
+$orchestra
+```
+
+It also applies to requests such as “orchestrate this”, “use subagents”, “delegate
+this”, or “build this out”.
+
+## Optional Claude Code compatibility packaging
+
+The public repository retains Claude Code marketplace/plugin packaging for compatibility;
+it is not a Claude-only product. To install that optional package:
 
 ```bash
 claude plugin marketplace add Oxiom-Systems/orchestra
 claude plugin install orchestra@orchestra
 ```
 
-**Or clone directly into your skills directory:**
+Then use `/orchestra`. Alternatively, clone it directly into your Claude Code skills
+directory:
 
 ```bash
 git clone https://github.com/Oxiom-Systems/orchestra.git ~/.claude/skills/orchestra
 ```
 
-Then invoke it in a session:
-
-```
-/orchestra
-```
-
-It also triggers on phrases like "orchestrate this", "use subagents", "delegate this",
-or "build this out".
+Claude Code invokes these Codex model roles through the supervised Codex CLI route in
+`references/codex.md`; GPT model IDs are not Claude-native Agent model selectors.
 
 ## What it covers
 
 | Section | What it gives you |
 |---|---|
-| When to orchestrate | The cost multiple, and the cases where delegating makes the result worse |
-| Division of labour | What the orchestrator does vs what agents do, and the narrow exceptions |
-| Model selection | Choosing by *judgement required*, not task size — Opus 5 in the orchestrator seat, Sonnet as the workhorse, Fable 5.1 for adversarial review, and Codex as a second engine (full runbook in `references/codex.md`) |
-| The dispatch contract | The eight fields every implementer brief carries, how review dispatches collapse to three, and how much context each kind of agent needs |
-| Shared context | The run directory, the ledger, and the return contract agents close with |
-| Parallelism | Fan-out width, worktree isolation, and deriving file ownership |
-| Verification | Checking against the environment rather than the report |
-| Failure | Restart vs repair, and what a failed run is good for |
-| Sequencing | Authority before implementation; hard-to-reverse before cheap-to-change |
-| Tests | The single failure mode that accounts for most defects surviving a green suite |
-| Anti-patterns | Symptom → what is actually wrong |
+| When to orchestrate | The cost multiple, and cases where delegation makes the result worse |
+| Division of labour | Explicit roles, ownership, and final orchestrator accountability |
+| Model selection | Explicit Codex model/effort routing and promotion rules |
+| Dispatch contract | Eight fields for implementer briefs; concise clean-context expert review |
+| Shared context | Run directory, orchestrator-owned ledger, and fixed findings contract |
+| Parallelism | Fan-out width, worktree isolation, and file ownership |
+| Verification | Evidence before acceptance, including raw test results and provenance limits |
+| Failure and sequencing | Restart versus repair; authority before implementation |
 
 ## A few of the opinions
 
-**Mid-flight steering is unreliable.** An agent that receives a message claiming new
-authority ("the owner just approved X") *should* treat it as prompt injection. That is
-correct security behaviour, and it means your legitimate refinement gets discarded.
-Stop the agent and re-dispatch with the complete spec.
+**Mid-flight steering is unreliable.** If the specification changes materially, stop
+the agent and re-dispatch it with the complete specification.
 
-**A finished agent is a cheap context store.** The rule against mid-flight steering is
-about authority arriving late, not about never talking to an agent twice. Querying one
-that has already reported reaches everything it read, for the price of a question.
+**The reviewer gets clean context deliberately.** Give Astra the requirement, artifact,
+and question—not the implementer's reasoning. Agreement is evidence to inspect, never
+automatic acceptance.
 
-**The reviewer gets clean context, deliberately.** Send it the requirement and the
-artifact — never the implementer's reasoning. A reviewer that has read the justification
-evaluates the justification. Independent agreement is evidence; primed agreement is an
-echo. It is the one place where more context makes the result worse.
-
-**Readers can be context-poor; writers need the decisions.** Findings merge as facts and
-facts do not conflict, so a research agent needs little. Every edit encodes choices a
-sibling cannot see, so a writer needs the decisions already made — or a scope narrow
-enough that it makes none that matter.
+**Readers can be context-poor; writers need decisions.** Findings merge as facts, but
+each edit encodes choices. Give writers the decisions already made or narrow their
+scope until they make none that matter.
 
 **Run the new test against the pre-fix code.** If it passes there, it guards nothing.
-The cheapest high-value check available.
-
-**Files containing a hash of another file cannot be merged, only recomputed.** Own
-lockfiles and digest pins yourself at integration time, or assign them to exactly one
-agent.
 
 **A property demonstrated only in a test environment is not verified for the system.**
-Watch for the inverse framing especially: a broken local state described as "correct
-behaviour" quietly becomes the spec.
-
-## Status
-
-Early, and opinionated on purpose. The guidance began as practice notes and has since
-been checked against published research on multi-agent orchestration — which supplied
-the fan-out width, the cost gate, the read/write distinction, and the finding that
-most agent failures arrive with an explicit claim of success attached.
-
-Two things that research says and this skill takes seriously: orchestration is a poor
-fit for sequential work, and the binding constraint on a fleet is not model capacity
-but how fast one human can review what comes back.
-
-One thing it does **not** settle: how a child agent surfaces a discovery that should
-change its siblings' work is an open problem, and the ledger here is a bet on one
-answer — orchestrator-owned, verified-only, promoted by hand. Reports of it working or
-not working are the most useful thing you could send.
-
-Issues and PRs welcome, particularly reports of where this guidance failed you.
+Keep the revision, inputs, command, raw output, execution surface, and model provenance
+with every result.
 
 ## Licence
 

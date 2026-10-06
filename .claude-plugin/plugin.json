@@ -1,7 +1,7 @@
 {
   "name": "orchestra",
-  "version": "1.1.0",
-  "description": "Orchestrate multi-agent implementation work as senior architect. You plan, brief, verify and integrate; subagents implement.",
+  "version": "1.2.0",
+  "description": "Role-based Codex orchestration: Astra for expert review, Sol for complex orchestration, Terra for implementation, and Luna for simple mechanical tasks.",
   "author": {
     "name": "Oxiom Systems",
     "url": "https://github.com/Oxiom-Systems"
